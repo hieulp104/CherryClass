@@ -27,6 +27,8 @@ type ToastApi = {
   error: (message: ReactNode) => void;
   info: (message: ReactNode) => void;
   undoable: (message: ReactNode, opts: { onUndo: () => void; onCommit?: () => void; duration?: number }) => void;
+  /** Đóng mọi toast (vd sau khi chốt buổi — "Hoàn tác" lúc đó không còn ý nghĩa). */
+  dismissAll: () => void;
 };
 
 const ToastContext = createContext<ToastApi | null>(null);
@@ -76,6 +78,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         push({ kind: "error", message, duration: 4500 });
       },
       info: (message) => push({ kind: "info", message, duration: 3000 }),
+      dismissAll: () => {
+        for (const t of timers.current.values()) clearTimeout(t);
+        timers.current.clear();
+        setItems([]);
+      },
       undoable: (message, { onUndo, onCommit, duration = 5000 }) => {
         haptic(10);
         let undone = false;

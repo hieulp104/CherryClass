@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useDragControls } from "motion/react";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+
+const noopSubscribe = () => () => {};
 
 /**
  * Hộp thoại đáp ứng: điện thoại = bottom sheet kéo xuống để đóng; màn rộng = hộp giữa màn hình.
@@ -42,7 +44,9 @@ export function Sheet({
     };
   }, [open, onClose]);
 
-  if (typeof document === "undefined") return null;
+  // false khi render server và lúc hydrate → không lệch HTML; true ngay sau đó để portal ra <body>.
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
+  if (!mounted) return null;
 
   return createPortal(
     <AnimatePresence>

@@ -176,9 +176,12 @@ export function parseRows(rows: unknown[][]): {
     fullName = titleCase(fullName.replace(/\s+/g, " "));
     const rest = [get(row, "classroom"), get(row, "parentPhone"), get(row, "parentName")].map(text).join("");
     if (!fullName && !rest) continue; // dòng trống
+    // Dòng ghi chú / hướng dẫn cuối bảng ("Ghi chú: …", "Lưu ý …") — không phải học sinh.
+    if (!rest && /^(ghi chu|luu y|chu y|note|tong|tong cong)(\s|:|$)/.test(removeDiacritics(fullName))) continue;
 
     const problems: string[] = [];
     if (!fullName) problems.push("Thiếu họ tên");
+    else if (fullName.length > 60 || fullName.split(" ").length > 7) problems.push("Họ tên dài bất thường");
     else if (/^\d+$/.test(fullName.replace(/\s/g, ""))) problems.push("Họ tên không hợp lệ");
 
     const rawParentPhone = text(get(row, "parentPhone"));

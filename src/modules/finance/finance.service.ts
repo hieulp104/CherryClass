@@ -108,6 +108,19 @@ export async function financeOverview(month: string) {
   const current = trend.at(-1)!;
   const previous = trend.at(-2)!;
 
+  // So sánh CÙNG KỲ: tháng đang dở (vd mới tới ngày 8) thì so với ngày 1–8 tháng trước,
+  // không so với cả tháng — tránh "−96%" vô lý làm cô nản.
+  const today = todayKey();
+  const partial = month === today.slice(0, 7);
+  const prevMonth = months.at(-2)!;
+  const prevLastDay = Number(monthRange(prevMonth).to.slice(8));
+  const cutDay = Math.min(Number(today.slice(8)), prevLastDay);
+  const prevSamePeriod = partial
+    ? payments
+        .filter((p) => monthOfTs(p.paidAt) === prevMonth && Number(todayKey(p.paidAt).slice(8)) <= cutDay)
+        .reduce((s, p) => s + p.amount, 0)
+    : previous.income;
+
   // Ước tính thời gian tiết kiệm: mỗi buổi tự đếm + ghi sổ ~4 phút, mỗi phiếu tự tính tiền ~8 phút,
   // mỗi khoản thu tự đối chiếu ~2 phút. Con số thận trọng để cô thấy, không phóng đại.
   const savedMinutes = completedSessions * 4 + invoicesCount * 8 + confirmedCount * 2;
@@ -118,6 +131,7 @@ export async function financeOverview(month: string) {
     expense: current.expense,
     profit: current.profit,
     previous,
+    comparison: { income: prevSamePeriod, label: partial ? `cùng kỳ ${previous.label}` : previous.fullLabel.toLowerCase() },
     issued: { amount: issued._sum.amount ?? 0, count: issued._count._all },
     outstanding,
     trend,

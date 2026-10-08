@@ -1,7 +1,7 @@
 # TeamCherry — Thiết kế trước khi code
 
-> Trạng thái: **CHỜ DUYỆT**. Chưa viết dòng code nào. Schema mục 2 và các điểm mục 4
-> cần được chốt trước khi bắt đầu Giai đoạn 1.
+> Trạng thái: **ĐÃ DUYỆT — Giai đoạn 1 đã làm xong.** Các câu hỏi mục 4 đã được trả lời (xem bảng "Đã chốt" ở cuối mục 4).
+> Một số mặc định trong ví dụ mục 3 (vắng có phép không tính) khác mặc định cuối cùng (tính) — ví dụ vẫn đúng với cài đặt ghi trong ví dụ.
 > Yêu cầu gốc: [requirements.md](requirements.md).
 
 ---
@@ -400,7 +400,21 @@ sẽ thành bộ **unit test Vitest** cho module `billing` trước khi viết g
 
 ---
 
-## 5. Kế hoạch Giai đoạn 1 (sau khi duyệt)
+### Đã chốt (08/10/2026)
+
+| # | Quyết định |
+|---|---|
+| 1 | Theo khung QLNS: Postgres + Prisma tự host |
+| 2–3 | Vắng có phép và không phép **mặc định tính tiền**; cô bật/tắt trong Cài đặt |
+| 4 | Lớp, ca, lịch học: cô tự tạo trong app (dữ liệu mẫu: Lớp 8, 9A, 9B — 10 ca) |
+| 5 | Giảm anh chị em: cô tự đặt cho từng nhóm (% hoặc số tiền; mọi em hoặc từ em thứ 2) |
+| 6 | Làm tròn xuống tới nghìn |
+| 7–9, 15–16 | Theo đề xuất mặc định |
+| 10 | Chưa làm Zalo — chỉ sao chép tin nhắn (có nút Chia sẻ của điện thoại) |
+| 12 | Không có file Excel mẫu → app có file mẫu tải về + tự nhận diện cột theo tên thường gặp |
+| — | Thêm `Invoice.discountSnapshot` (migration thứ 2) để sửa tay phiếu cũ không lấy mức giảm mới |
+
+## 5. Kế hoạch Giai đoạn 1 (đã làm)
 
 1. Khung dự án theo QLNS: Next 16, Prisma 7, Docker Postgres `5435`, Auth.js, `can()`, `ok/fail`, AuditLog.
 2. Design system: token sáng/tối, font, kit UI, Bé Cherry SVG 6 biểu cảm, BottomNav + FAB, preset Motion.

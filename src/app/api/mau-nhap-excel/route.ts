@@ -27,8 +27,17 @@ export async function GET() {
   ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE11D48" } };
   ws.getRow(1).height = 22;
   ws.views = [{ state: "frozen", ySplit: 1 }];
-  ws.addRow([]);
-  ws.addRow(["Ghi chú: chỉ cột Họ và tên là bắt buộc. Học phí để trống = theo đơn giá mặc định. Có thể xóa 2 dòng ví dụ trên."]);
+  // Hướng dẫn để ở sheet riêng — không lẫn vào dữ liệu học sinh.
+  const help = wb.addWorksheet("Hướng dẫn");
+  help.getColumn(1).width = 90;
+  for (const line of [
+    "Cách điền:",
+    "• Chỉ cột 'Họ và tên' là bắt buộc. Các cột khác để trống cũng được.",
+    "• Lớp ghi giống tên lớp trong app (vd: Lớp 9A, 9A đều được).",
+    "• Học phí/buổi để trống = theo đơn giá mặc định trong Cài đặt.",
+    "• Xóa 2 dòng ví dụ ở sheet 'Học sinh' trước khi nhập.",
+  ])
+    help.addRow([line]);
 
   const buffer = await wb.xlsx.writeBuffer();
   return new Response(buffer as ArrayBuffer, {

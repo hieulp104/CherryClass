@@ -302,7 +302,14 @@ export async function listInvoices() {
       },
     },
   });
-  const ledgers = await loadLedgers([...new Set(invoices.map((i) => i.studentId))]);
+  const [ledgers, claims] = await Promise.all([
+    loadLedgers([...new Set(invoices.map((i) => i.studentId))]),
+    prisma.payment.findMany({
+      where: { status: "PENDING", invoiceId: { not: null } },
+      select: { id: true, invoiceId: true, amount: true, paidAt: true },
+    }),
+  ]);
+  const claimByInvoice = new Map(claims.map((c) => [c.invoiceId!, c]));
   const today = todayKey();
   return invoices.map((inv) => {
     const ledger = ledgers.get(inv.studentId);
@@ -318,6 +325,11 @@ export async function listInvoices() {
       student: { ...inv.student, classroom: inv.student.classroom.name },
       ...s,
       tone: reminderTone(s.daysSinceSent ?? 0, inv.student.hardship, settings.reminders),
+      publicToken: inv.publicToken,
+      claim: (() => {
+        const c = claimByInvoice.get(inv.id);
+        return c ? { id: c.id, amount: c.amount, at: c.paidAt.toISOString() } : null;
+      })(),
     };
   });
 }

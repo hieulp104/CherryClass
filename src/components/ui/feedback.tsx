@@ -71,8 +71,8 @@ export function InvoiceStateChip({ state, className }: { state: InvoiceDisplaySt
 
 // ─────────────── Skeleton theo hình nội dung ───────────────
 
-export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("skeleton rounded-control", className)} />;
+export function Skeleton({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return <div className={cn("skeleton rounded-control", className)} style={style} />;
 }
 
 export function SkeletonList({ rows = 5 }: { rows?: number }) {

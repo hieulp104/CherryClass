@@ -23,27 +23,24 @@ export function CountUp({
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true });
   const reduce = useReducedMotion();
-  const [display, setDisplay] = useState(reduce ? value : 0);
+  const [animated, setAnimated] = useState(0);
   const from = useRef(0);
 
   useEffect(() => {
-    if (!inView) return;
-    if (reduce) {
-      setDisplay(value);
-      return;
-    }
+    if (!inView || reduce) return;
     const controls = animate(from.current, value, {
       duration,
       ease: [0.16, 1, 0.3, 1],
-      onUpdate: (v) => setDisplay(Math.round(v)),
+      onUpdate: (v) => setAnimated(Math.round(v)),
     });
     from.current = value;
     return () => controls.stop();
   }, [inView, value, duration, reduce]);
 
+  // Giảm chuyển động → hiện thẳng số cuối, không chạy.
   return (
     <span ref={ref} className={cn("tabular", className)}>
-      {format(display)}
+      {format(reduce ? value : animated)}
     </span>
   );
 }
@@ -100,9 +97,24 @@ export function CherryProgress({
   );
 }
 
+/**
+ * Bản nhẹ của CherryProgress cho danh sách dài (150 em): chấm tròn thay vì SVG,
+ * nhẹ hơn ~20 lần về HTML.
+ */
+export function CherryDots({ count, cycle, className }: { count: number; cycle: number; className?: string }) {
+  const filled = Math.min(count, cycle);
+  return (
+    <span className={cn("inline-flex items-center gap-[3px]", className)} aria-label={`${filled}/${cycle} buổi trong chu kỳ`}>
+      {Array.from({ length: cycle }, (_, i) => (
+        <span key={i} className={cn("size-2 rounded-full", i < filled ? "bg-primary" : "bg-line-strong")} />
+      ))}
+    </span>
+  );
+}
+
 // ─────────────── Pháo giấy hình cherry ───────────────
 
-type Piece = { id: number; x: number; delay: number; rotate: number; drift: number; kind: "cherry" | "dot"; color: string };
+type Piece = { id: number; x: number; delay: number; rotate: number; drift: number; duration: number; kind: "cherry" | "dot"; color: string };
 
 const COLORS = ["#E11D48", "#F59E0B", "#16A34A", "#FB7185", "#0EA5E9", "#A78BFA"];
 
@@ -116,18 +128,26 @@ export function CherryConfetti({ fire, count = 36 }: { fire: number; count?: num
 
   useEffect(() => {
     if (!fire || reduce) return;
-    const batch: Piece[] = Array.from({ length: count }, (_, i) => ({
-      id: fire * 1000 + i,
-      x: Math.random() * 100,
-      delay: Math.random() * 0.35,
-      rotate: (Math.random() - 0.5) * 720,
-      drift: (Math.random() - 0.5) * 30,
-      kind: i % 3 === 0 ? "cherry" : "dot",
-      color: COLORS[i % COLORS.length],
-    }));
-    setPieces(batch);
-    const t = setTimeout(() => setPieces([]), 2800);
-    return () => clearTimeout(t);
+    // Sinh hạt trong callback khung hình kế tiếp (không setState đồng bộ trong effect).
+    const raf = requestAnimationFrame(() =>
+      setPieces(
+        Array.from({ length: count }, (_, i) => ({
+          id: fire * 1000 + i,
+          x: Math.random() * 100,
+          delay: Math.random() * 0.35,
+          rotate: (Math.random() - 0.5) * 720,
+          drift: (Math.random() - 0.5) * 30,
+          duration: 2.2 + Math.random() * 0.6,
+          kind: i % 3 === 0 ? "cherry" : "dot",
+          color: COLORS[i % COLORS.length],
+        })),
+      ),
+    );
+    const t = setTimeout(() => setPieces([]), 2900);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+    };
   }, [fire, count, reduce]);
 
   if (pieces.length === 0) return null;
@@ -141,7 +161,7 @@ export function CherryConfetti({ fire, count = 36 }: { fire: number; count?: num
           style={{ left: `${p.x}%` }}
           initial={{ y: -40, x: 0, rotate: 0, opacity: 1 }}
           animate={{ y: "105vh", x: `${p.drift}vw`, rotate: p.rotate, opacity: [1, 1, 0.9, 0] }}
-          transition={{ duration: 2.2 + Math.random() * 0.6, delay: p.delay, ease: [0.2, 0.6, 0.4, 1] }}
+          transition={{ duration: p.duration, delay: p.delay, ease: [0.2, 0.6, 0.4, 1] }}
         >
           {p.kind === "cherry" ? (
             <CherryIcon size={22} />
