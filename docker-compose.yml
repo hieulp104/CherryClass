@@ -1,0 +1,27 @@
+# TeamCherry — hạ tầng phát triển (Postgres)
+# Dùng: npm run db:up
+# MinIO (lưu ảnh đề/bài nộp) sẽ thêm ở Giai đoạn 2.
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: teamcherry-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: teamcherry
+      POSTGRES_PASSWORD: teamcherry_dev_password
+      POSTGRES_DB: teamcherry
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      # 5433 (QLNS) và 5434 (recall-vault) đã bị chiếm trên máy dev → dùng 5435.
+      - "5435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teamcherry -d teamcherry"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

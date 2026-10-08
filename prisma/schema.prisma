@@ -1,0 +1,520 @@
+// ═══════════════════════════════════════════════════════════════════
+// TEAMCHERRY — Quản lý lớp dạy thêm: điểm danh, học phí, thu chi
+// Thiết kế & lý do từng bảng: docs/thiet-ke.md mục 2. Hỏi trước khi sửa.
+// Quy ước (theo QLNS): model PascalCase · bảng snake_case qua @@map · enum SCREAMING_SNAKE
+// Tiền: Int, đơn vị đồng. TUYỆT ĐỐI không dùng Float cho tiền.
+// Ngày học / ngày chi: @db.Date — không dính lệch múi giờ.
+// ═══════════════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ═══════════════════ ENUMS ═══════════════════
+
+/// GĐ1 chỉ có TEACHER. PARENT (khối 8) và STUDENT (khối 9) dùng từ GĐ2.
+enum UserRole {
+  TEACHER
+  PARENT
+  STUDENT
+}
+
+enum StudentStatus {
+  ACTIVE // đang học
+  PAUSED // tạm nghỉ
+  LEFT // đã nghỉ — giữ nguyên lịch sử
+}
+
+enum SessionStatus {
+  SCHEDULED
+  COMPLETED // đã bấm "Xong buổi" — điểm danh đã chốt tiền
+  CANCELLED // nghỉ lễ, cô ốm…
+}
+
+enum AttendanceStatus {
+  PRESENT
+  EXCUSED // vắng có phép
+  UNEXCUSED // vắng không phép
+}
+
+/// SESSION = điểm danh thật; MANUAL = cô sửa tay bộ đếm (vd buổi học trước khi dùng app).
+enum AttendanceSource {
+  SESSION
+  MANUAL
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+/// ALL = mọi em trong nhóm đều được giảm; FROM_SECOND = em đầu tiên (nhập học sớm nhất) giữ nguyên giá.
+enum DiscountApplyTo {
+  ALL
+  FROM_SECOND
+}
+
+/// Trạng thái QUY TRÌNH của phiếu. Trạng thái THANH TOÁN không lưu — tính từ sổ cái.
+enum InvoiceStatus {
+  READY // đã tạo, chờ cô gửi
+  SENT // cô đã gửi cho phụ huynh — khóa sửa điểm danh các buổi trong phiếu
+  VOID // đã hủy
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+}
+
+enum PaymentSource {
+  MANUAL // cô tự ghi
+  PARENT_CLAIM // phụ huynh bấm "Tôi đã chuyển khoản"
+  WEBHOOK // GĐ3: SePay / Casso
+}
+
+enum PaymentStatus {
+  PENDING // phụ huynh báo, cô chưa đối chiếu — CHƯA tính là tiền đã nhận
+  CONFIRMED
+  REJECTED
+}
+
+enum MessageKind {
+  FEE_SOFT // Báo nhẹ — vừa đủ buổi
+  FEE_GENTLE // Nhắc khéo — quá vài ngày
+  FEE_CLEAR // Nhắc rõ — quá lâu
+  ABSENCE_CHECK // hỏi thăm khi vắng liên tiếp
+  PRAISE // lời khen gửi phụ huynh
+  SESSION_CANCELLED // báo nghỉ buổi
+  BIRTHDAY
+}
+
+enum BankProvider {
+  SEPAY
+  CASSO
+}
+
+// ═══════════════════ TÀI KHOẢN & HỆ THỐNG ═══════════════════
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  displayName  String    @map("display_name") // "cô Hà"
+  role         UserRole  @default(TEACHER)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  auditLogs     AuditLog[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+/// Cấu hình key/value — sửa không cần deploy. Danh sách key: src/modules/settings/settings.service.ts
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?  @map("actor_id")
+  action    String // ATTENDANCE_FINALIZE, INVOICE_ADJUST, PAYMENT_CONFIRM...
+  entity    String
+  entityId  String?  @map("entity_id")
+  before    Json?
+  after     Json?
+  reason    String?
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([actorId, createdAt])
+  @@index([entity, entityId])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  kind      String // PARENT_PAYMENT_CLAIM, CYCLE_COMPLETE...
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// ═══════════════════ LỚP · CA · BUỔI ═══════════════════
+
+model Classroom {
+  id         String    @id @default(cuid())
+  name       String // "Lớp 9A"
+  grade      Int // 8 | 9
+  color      String    @default("#E11D48")
+  sortOrder  Int       @default(0) @map("sort_order")
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  shifts   Shift[]
+  students Student[]
+
+  @@map("classrooms")
+}
+
+model Shift {
+  id          String   @id @default(cuid())
+  classroomId String   @map("classroom_id")
+  name        String // "Ca 1"
+  room        String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  classroom Classroom       @relation(fields: [classroomId], references: [id])
+  schedules ShiftSchedule[]
+  sessions  Session[]
+  students  Student[]
+
+  @@index([classroomId])
+  @@map("shifts")
+}
+
+/// Lịch lặp hằng tuần của một ca. weekday: 1 = Thứ 2 … 7 = Chủ nhật.
+model ShiftSchedule {
+  id        String @id @default(cuid())
+  shiftId   String @map("shift_id")
+  weekday   Int
+  startTime String @map("start_time") // "17:30"
+  endTime   String @map("end_time") // "19:00"
+
+  shift Shift @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  @@unique([shiftId, weekday, startTime])
+  @@map("shift_schedules")
+}
+
+/// Một buổi học cụ thể, sinh từ ShiftSchedule. Hủy buổi = đổi status, không xóa.
+model Session {
+  id           String        @id @default(cuid())
+  shiftId      String        @map("shift_id")
+  date         DateTime      @db.Date
+  startTime    String        @map("start_time")
+  endTime      String        @map("end_time")
+  status       SessionStatus @default(SCHEDULED)
+  cancelReason String?       @map("cancel_reason")
+  completedAt  DateTime?     @map("completed_at")
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  shift       Shift        @relation(fields: [shiftId], references: [id])
+  attendances Attendance[]
+
+  @@unique([shiftId, date, startTime])
+  @@index([date])
+  @@map("sessions")
+}
+
+// ═══════════════════ HỌC SINH ═══════════════════
+
+model Student {
+  id              String        @id @default(cuid())
+  code            String        @unique // HS0001
+  fullName        String        @map("full_name")
+  /// Tên bỏ dấu, chữ thường — để gõ "nguyen van an" vẫn ra "Nguyễn Văn An".
+  searchName      String        @map("search_name")
+  dob             DateTime?     @db.Date
+  classroomId     String        @map("classroom_id")
+  shiftId         String?       @map("shift_id") // ca chính
+  school          String?
+  parentName      String?       @map("parent_name")
+  parentPhone     String?       @map("parent_phone")
+  studentPhone    String?       @map("student_phone")
+  status          StudentStatus @default(ACTIVE)
+  statusChangedAt DateTime?     @map("status_changed_at")
+  /// Null = theo đơn giá mặc định trong Setting.
+  unitPrice       Int?          @map("unit_price")
+  siblingGroupId  String?       @map("sibling_group_id")
+  /// "Gia đình khó khăn" — chỉ cô thấy; app tự chọn giọng nhắc nhẹ nhất.
+  hardship        Boolean       @default(false)
+  avatarHue       Int           @map("avatar_hue")
+  joinedAt        DateTime      @default(now()) @map("joined_at") @db.Date
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
+
+  classroom    Classroom     @relation(fields: [classroomId], references: [id])
+  shift        Shift?        @relation(fields: [shiftId], references: [id])
+  siblingGroup SiblingGroup? @relation(fields: [siblingGroupId], references: [id])
+  notes        StudentNote[]
+  attendances  Attendance[]
+  invoices     Invoice[]
+  payments     Payment[]
+  messageLogs  MessageLog[]
+
+  @@index([classroomId, status])
+  @@index([searchName])
+  @@index([siblingGroupId])
+  @@map("students")
+}
+
+/// Ghi chú RIÊNG TƯ của cô. Tách bảng để truy vấn phía phụ huynh/học sinh không thể vô tình include.
+model StudentNote {
+  id        String   @id @default(cuid())
+  studentId String   @map("student_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@map("student_notes")
+}
+
+model SiblingGroup {
+  id            String          @id @default(cuid())
+  label         String // "Nhà chị Lan"
+  discountType  DiscountType    @default(PERCENT) @map("discount_type")
+  /// PERCENT: 10 = 10%. FIXED: số đồng giảm trên mỗi phiếu.
+  discountValue Int             @map("discount_value")
+  applyTo       DiscountApplyTo @default(ALL) @map("apply_to")
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  students Student[]
+
+  @@map("sibling_groups")
+}
+
+// ═══════════════════ ĐIỂM DANH & HỌC PHÍ ═══════════════════
+
+/// Một dòng = một em × một buổi (hoặc một buổi cô cộng tay).
+/// billable + unitPrice được CHỐT lúc "Xong buổi" — đổi cài đặt sau này không làm đổi tiền buổi cũ.
+model Attendance {
+  id         String           @id @default(cuid())
+  sessionId  String?          @map("session_id") // null khi source = MANUAL
+  studentId  String           @map("student_id")
+  date       DateTime         @db.Date
+  status     AttendanceStatus @default(PRESENT)
+  source     AttendanceSource @default(SESSION)
+  isMakeup   Boolean          @default(false) @map("is_makeup") // học bù ở ca khác
+  note       String?
+  billable   Boolean          @default(false)
+  unitPrice  Int              @default(0) @map("unit_price")
+  /// UUID từ điện thoại — đồng bộ offline gửi lại nhiều lần không ghi đôi.
+  clientOpId String?          @unique @map("client_op_id")
+  /// Lý do khi cô cộng/trừ tay bộ đếm.
+  reason     String?
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  session     Session?     @relation(fields: [sessionId], references: [id])
+  student     Student      @relation(fields: [studentId], references: [id])
+  invoiceLine InvoiceLine?
+
+  @@unique([sessionId, studentId])
+  @@index([studentId, billable])
+  @@map("attendances")
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  code            String        @unique // PT-2026-0001
+  studentId       String        @map("student_id")
+  cycleNo         Int           @map("cycle_no")
+  sessionCount    Int           @map("session_count")
+  subtotal        Int // Σ đơn giá các buổi (buổi miễn = 0)
+  discountAmount  Int           @default(0) @map("discount_amount")
+  discountLabel   String?       @map("discount_label") // "Giảm anh chị em 10%"
+  adjustmentTotal Int           @default(0) @map("adjustment_total")
+  /// Phần làm tròn xuống (≤ 0) để số phải đóng tròn nghìn.
+  roundingAmount  Int           @default(0) @map("rounding_amount")
+  /// amount = subtotal − discountAmount + adjustmentTotal + roundingAmount
+  amount          Int
+  /// Số dư (nợ > 0 / thừa < 0) ngay trước khi phát hành phiếu — chụp lại để in "Nợ kỳ trước".
+  /// KHÔNG cộng vào amount, nhờ vậy nợ cũ không bao giờ bị tính hai lần.
+  openingBalance  Int           @default(0) @map("opening_balance")
+  status          InvoiceStatus @default(READY)
+  /// Mã bảo mật của link công khai /p/<token>.
+  publicToken     String        @unique @map("public_token")
+  issuedAt        DateTime      @default(now()) @map("issued_at")
+  sentAt          DateTime?     @map("sent_at")
+  voidedAt        DateTime?     @map("voided_at")
+  voidReason      String?       @map("void_reason")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  student     Student             @relation(fields: [studentId], references: [id])
+  lines       InvoiceLine[]
+  adjustments InvoiceAdjustment[]
+  payments    Payment[]
+  messageLogs MessageLog[]
+
+  @@index([studentId, status])
+  @@map("invoices")
+}
+
+/// attendanceId UNIQUE ở mức DB ⇒ một buổi không bao giờ bị tính tiền hai lần.
+model InvoiceLine {
+  id           String   @id @default(cuid())
+  invoiceId    String   @map("invoice_id")
+  attendanceId String   @unique @map("attendance_id")
+  date         DateTime @db.Date
+  label        String // "Ca 1 · Lớp 9A" hoặc "Cộng tay: học trước khi dùng app"
+  unitPrice    Int      @map("unit_price")
+  /// Cô miễn buổi này — vẫn gắn với phiếu nên không bị tính lại ở chu kỳ sau.
+  waived       Boolean  @default(false)
+  waiveReason  String?  @map("waive_reason")
+
+  invoice    Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  attendance Attendance @relation(fields: [attendanceId], references: [id])
+
+  @@index([invoiceId])
+  @@map("invoice_lines")
+}
+
+/// Sửa tay số tiền của phiếu. Lý do bắt buộc; giá trị cũ/mới còn được ghi vào AuditLog.
+model InvoiceAdjustment {
+  id          String   @id @default(cuid())
+  invoiceId   String   @map("invoice_id")
+  delta       Int // âm = giảm, dương = tăng
+  reason      String
+  createdById String?  @map("created_by_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_adjustments")
+}
+
+model Payment {
+  id          String        @id @default(cuid())
+  studentId   String        @map("student_id")
+  /// Phiếu phụ huynh bấm báo từ đó. Sổ cái vẫn phân bổ FIFO theo học sinh.
+  invoiceId   String?       @map("invoice_id")
+  amount      Int
+  paidAt      DateTime      @map("paid_at")
+  method      PaymentMethod @default(BANK_TRANSFER)
+  source      PaymentSource @default(MANUAL)
+  status      PaymentStatus @default(CONFIRMED)
+  bankRef     String?       @map("bank_ref")
+  note        String?
+  confirmedAt DateTime?     @map("confirmed_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  student Student  @relation(fields: [studentId], references: [id])
+  invoice Invoice? @relation(fields: [invoiceId], references: [id])
+
+  @@index([studentId, status])
+  @@index([paidAt])
+  @@map("payments")
+}
+
+/// GĐ3 — giao dịch ngân hàng đổ về qua webhook để tự đối soát. Dựng sẵn bảng.
+model BankTransaction {
+  id               String       @id @default(cuid())
+  provider         BankProvider
+  externalId       String       @map("external_id")
+  amount           Int
+  content          String
+  receivedAt       DateTime     @map("received_at")
+  matchedPaymentId String?      @map("matched_payment_id")
+  raw              Json
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  @@unique([provider, externalId])
+  @@map("bank_transactions")
+}
+
+// ═══════════════════ TIN NHẮN ═══════════════════
+
+/// Biến dùng được trong body: {tenCon} {tenPhuHuynh} {lop} {soBuoi} {soTien} {link} {ngay} {tenCo}
+model MessageTemplate {
+  id        String      @id @default(cuid())
+  kind      MessageKind
+  title     String
+  body      String
+  isDefault Boolean     @default(false) @map("is_default")
+  sortOrder Int         @default(0) @map("sort_order")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  @@index([kind])
+  @@map("message_templates")
+}
+
+/// Mỗi lần cô sao chép tin nhắn để gửi.
+model MessageLog {
+  id        String      @id @default(cuid())
+  studentId String?     @map("student_id")
+  invoiceId String?     @map("invoice_id")
+  kind      MessageKind
+  content   String
+  createdAt DateTime    @default(now()) @map("created_at")
+
+  student Student? @relation(fields: [studentId], references: [id])
+  invoice Invoice? @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+  @@index([studentId])
+  @@map("message_logs")
+}
+
+// ═══════════════════ CHI PHÍ ═══════════════════
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  name      String
+  icon      String // tên icon lucide: "printer", "home"...
+  color     String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  expenses Expense[]
+
+  @@map("expense_categories")
+}
+
+model Expense {
+  id         String    @id @default(cuid())
+  categoryId String    @map("category_id")
+  amount     Int
+  spentOn    DateTime  @map("spent_on") @db.Date
+  note       String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  category ExpenseCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([spentOn])
+  @@map("expenses")
+}
+
+// ═══════════════════ NHẬP EXCEL ═══════════════════
+
+model ImportBatch {
+  id        String   @id @default(cuid())
+  fileName  String   @map("file_name")
+  total     Int
+  created   Int
+  skipped   Int
+  report    Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("import_batches")
+}
