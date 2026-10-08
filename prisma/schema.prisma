@@ -332,31 +332,34 @@ model Attendance {
 }
 
 model Invoice {
-  id              String        @id @default(cuid())
-  code            String        @unique // PT-2026-0001
-  studentId       String        @map("student_id")
-  cycleNo         Int           @map("cycle_no")
-  sessionCount    Int           @map("session_count")
-  subtotal        Int // Σ đơn giá các buổi (buổi miễn = 0)
-  discountAmount  Int           @default(0) @map("discount_amount")
-  discountLabel   String?       @map("discount_label") // "Giảm anh chị em 10%"
-  adjustmentTotal Int           @default(0) @map("adjustment_total")
+  id               String        @id @default(cuid())
+  code             String        @unique // PT-2026-0001
+  studentId        String        @map("student_id")
+  cycleNo          Int           @map("cycle_no")
+  sessionCount     Int           @map("session_count")
+  subtotal         Int // Σ đơn giá các buổi (buổi miễn = 0)
+  discountAmount   Int           @default(0) @map("discount_amount")
+  discountLabel    String?       @map("discount_label") // "Giảm anh chị em 10%"
+  /// Cấu hình giảm giá CHỤP lúc phát hành {type,value,applyTo,isFirstChild}. Sửa tay phiếu cũ tính lại theo
+  /// bản chụp này, nên cô đổi mức giảm của nhóm anh chị em sau đó không làm đổi tiền phiếu đã phát hành.
+  discountSnapshot Json?         @map("discount_snapshot")
+  adjustmentTotal  Int           @default(0) @map("adjustment_total")
   /// Phần làm tròn xuống (≤ 0) để số phải đóng tròn nghìn.
-  roundingAmount  Int           @default(0) @map("rounding_amount")
+  roundingAmount   Int           @default(0) @map("rounding_amount")
   /// amount = subtotal − discountAmount + adjustmentTotal + roundingAmount
-  amount          Int
+  amount           Int
   /// Số dư (nợ > 0 / thừa < 0) ngay trước khi phát hành phiếu — chụp lại để in "Nợ kỳ trước".
   /// KHÔNG cộng vào amount, nhờ vậy nợ cũ không bao giờ bị tính hai lần.
-  openingBalance  Int           @default(0) @map("opening_balance")
-  status          InvoiceStatus @default(READY)
+  openingBalance   Int           @default(0) @map("opening_balance")
+  status           InvoiceStatus @default(READY)
   /// Mã bảo mật của link công khai /p/<token>.
-  publicToken     String        @unique @map("public_token")
-  issuedAt        DateTime      @default(now()) @map("issued_at")
-  sentAt          DateTime?     @map("sent_at")
-  voidedAt        DateTime?     @map("voided_at")
-  voidReason      String?       @map("void_reason")
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @updatedAt @map("updated_at")
+  publicToken      String        @unique @map("public_token")
+  issuedAt         DateTime      @default(now()) @map("issued_at")
+  sentAt           DateTime?     @map("sent_at")
+  voidedAt         DateTime?     @map("voided_at")
+  voidReason       String?       @map("void_reason")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
 
   student     Student             @relation(fields: [studentId], references: [id])
   lines       InvoiceLine[]

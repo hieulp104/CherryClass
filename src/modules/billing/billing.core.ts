@@ -238,6 +238,41 @@ export function amountDueOnInvoice(openingBalance: number, amount: number): numb
   return Math.max(0, openingBalance + amount);
 }
 
+export type InvoiceDisplayState = "READY" | "WAITING" | "OVERDUE" | "PARTIAL" | "CLAIMED" | "PAID" | "VOID";
+
+/**
+ * Trạng thái hiển thị của phiếu, ưu tiên theo thứ tự:
+ * Hủy → Đã thu → Phụ huynh báo đã chuyển (chờ cô xác nhận) → Cần gửi → Đóng thiếu → Quá hạn → Chờ đóng.
+ */
+export function invoiceDisplayState(input: {
+  status: "READY" | "SENT" | "VOID";
+  paymentState: PaymentState;
+  hasPendingClaim: boolean;
+  daysSinceSent: number | null;
+  overdueAfterDays: number;
+}): InvoiceDisplayState {
+  if (input.status === "VOID") return "VOID";
+  if (input.paymentState === "PAID") return "PAID";
+  if (input.hasPendingClaim) return "CLAIMED";
+  if (input.status === "READY") return "READY";
+  if (input.paymentState === "PARTIAL") return "PARTIAL";
+  if ((input.daysSinceSent ?? 0) >= input.overdueAfterDays) return "OVERDUE";
+  return "WAITING";
+}
+
+/**
+ * Số tiền in trên phiếu, tính SỐNG từ sổ cái (không dùng số chụp lúc tạo):
+ * nợ kỳ trước = phần còn thiếu của các phiếu cũ hơn; cần đóng = nợ kỳ trước + phần còn thiếu của phiếu này.
+ * Tiền thừa đã tự trừ qua phân bổ FIFO.
+ */
+export function invoiceDue(allocations: readonly InvoiceAllocation[], invoiceId: string) {
+  const index = allocations.findIndex((a) => a.id === invoiceId);
+  if (index < 0) return { priorDebt: 0, remaining: 0, paid: 0, totalDue: 0 };
+  const priorDebt = allocations.slice(0, index).reduce((s, a) => s + a.remaining, 0);
+  const me = allocations[index];
+  return { priorDebt, remaining: me.remaining, paid: me.paid, totalDue: priorDebt + me.remaining };
+}
+
 /** Mức nhắc theo số ngày kể từ khi gửi phiếu. Gia đình khó khăn luôn ở mức nhẹ nhất. */
 export function reminderTone(
   daysSinceSent: number,

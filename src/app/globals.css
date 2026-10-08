@@ -1,0 +1,323 @@
+@import "tailwindcss";
+
+/*
+ * TeamCherry design tokens — xem docs/thiet-ke.md mục 1.
+ * Component chỉ dùng tên ngữ nghĩa (bg-surface, text-primary…), KHÔNG hard-code hex.
+ * Chế độ tối: theo hệ điều hành, hoặc ép bằng data-theme="dark"/"light" trên <html>.
+ */
+
+/* Không dùng biến thể `dark:` trong component — mọi khác biệt sáng/tối nằm ở token bên dưới. */
+
+:root {
+  color-scheme: light;
+  --c-bg: #fff8f3;
+  --c-surface: #ffffff;
+  --c-surface-subtle: #fff1ec;
+  --c-surface-raised: #fffdfb;
+  --c-fg: #2a1b22;
+  --c-muted: #7a6570;
+  --c-line: #f3e1dc;
+  --c-line-strong: #e7c8c0;
+
+  --c-primary: #e11d48;
+  --c-primary-hover: #be123c;
+  --c-primary-deep: #9f1239;
+  --c-primary-soft: #ffe4e6;
+  --c-on-primary: #ffffff;
+
+  --c-leaf: #16a34a;
+  --c-leaf-soft: #dcfce7;
+  --c-amber: #d97706;
+  --c-amber-soft: #fef3c7;
+  --c-overdue: #be123c;
+  --c-overdue-soft: #fff1f2;
+  --c-sky: #0284c7;
+  --c-sky-soft: #e0f2fe;
+  --c-grape: #7c3aed;
+  --c-grape-soft: #ede9fe;
+
+  --c-overlay: rgb(42 27 34 / 0.42);
+  --pastel-l: 90%;
+  --pastel-s: 75%;
+  --pastel-fg-l: 30%;
+
+  --shadow-card: 0 1px 2px rgb(159 18 57 / 0.05), 0 8px 24px -10px rgb(159 18 57 / 0.16);
+  --shadow-pop: 0 2px 4px rgb(159 18 57 / 0.06), 0 18px 40px -12px rgb(159 18 57 / 0.28);
+  --shadow-fab: 0 6px 16px -2px rgb(225 29 72 / 0.5), 0 2px 4px rgb(159 18 57 / 0.2);
+  --glow: 0 0 0 0 transparent;
+
+  --hero-gradient: linear-gradient(135deg, #e11d48 0%, #f43f5e 55%, #fb7185 100%);
+  --leaf-gradient: linear-gradient(135deg, #15803d 0%, #16a34a 50%, #4ade80 100%);
+  --sunset-gradient: linear-gradient(135deg, #9f1239 0%, #e11d48 45%, #f59e0b 100%);
+  --soft-gradient: linear-gradient(160deg, #fff1f2 0%, #fff8f3 60%);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --c-bg: #1a0b16;
+  --c-surface: #26111f;
+  --c-surface-subtle: #2f1526;
+  --c-surface-raised: #331827;
+  --c-fg: #fce7f0;
+  --c-muted: #b497a6;
+  --c-line: #3d1e31;
+  --c-line-strong: #55293f;
+
+  --c-primary: #fb7185;
+  --c-primary-hover: #fda4af;
+  --c-primary-deep: #fda4af;
+  --c-primary-soft: #4c1530;
+  --c-on-primary: #1a0b16;
+
+  --c-leaf: #4ade80;
+  --c-leaf-soft: #12341f;
+  --c-amber: #fbbf24;
+  --c-amber-soft: #3b2a0d;
+  --c-overdue: #ff8fa3;
+  --c-overdue-soft: #401224;
+  --c-sky: #7dd3fc;
+  --c-sky-soft: #0c2a3a;
+  --c-grape: #c4b5fd;
+  --c-grape-soft: #2a1a46;
+
+  --c-overlay: rgb(8 2 6 / 0.62);
+  --pastel-l: 28%;
+  --pastel-s: 45%;
+  --pastel-fg-l: 88%;
+
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 10px 28px -12px rgb(0 0 0 / 0.6);
+  --shadow-pop: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 20px 44px -12px rgb(0 0 0 / 0.7);
+  --shadow-fab: 0 0 24px -2px rgb(251 113 133 / 0.65), 0 4px 12px rgb(0 0 0 / 0.5);
+  --glow: 0 0 22px -4px rgb(251 113 133 / 0.55);
+
+  --hero-gradient: linear-gradient(135deg, #9f1239 0%, #be123c 50%, #e11d48 100%);
+  --leaf-gradient: linear-gradient(135deg, #14532d 0%, #166534 50%, #15803d 100%);
+  --sunset-gradient: linear-gradient(135deg, #4c0519 0%, #9f1239 50%, #b45309 100%);
+  --soft-gradient: linear-gradient(160deg, #2f1526 0%, #1a0b16 70%);
+}
+
+@theme inline {
+  --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
+
+  --color-background: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-subtle: var(--c-surface-subtle);
+  --color-surface-raised: var(--c-surface-raised);
+  --color-foreground: var(--c-fg);
+  --color-muted: var(--c-muted);
+  --color-line: var(--c-line);
+  --color-line-strong: var(--c-line-strong);
+  --color-overlay: var(--c-overlay);
+
+  --color-primary: var(--c-primary);
+  --color-primary-hover: var(--c-primary-hover);
+  --color-primary-deep: var(--c-primary-deep);
+  --color-primary-soft: var(--c-primary-soft);
+  --color-on-primary: var(--c-on-primary);
+
+  --color-leaf: var(--c-leaf);
+  --color-leaf-soft: var(--c-leaf-soft);
+  --color-amber: var(--c-amber);
+  --color-amber-soft: var(--c-amber-soft);
+  --color-overdue: var(--c-overdue);
+  --color-overdue-soft: var(--c-overdue-soft);
+  --color-sky: var(--c-sky);
+  --color-sky-soft: var(--c-sky-soft);
+  --color-grape: var(--c-grape);
+  --color-grape-soft: var(--c-grape-soft);
+
+  --radius-control: 14px;
+  --radius-card: 20px;
+  --radius-sheet: 28px;
+
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+  --shadow-fab: var(--shadow-fab);
+  --shadow-glow: var(--glow);
+
+  --text-display: 2.5rem;
+  --text-display--line-height: 1.1;
+  --text-h1: 1.75rem;
+  --text-h1--line-height: 2.125rem;
+  --text-h2: 1.375rem;
+  --text-h2--line-height: 1.75rem;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.125rem;
+
+  --animate-wiggle: wiggle 0.6s ease-in-out;
+  --animate-float: float 3s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+}
+
+/* Dark theo hệ điều hành khi người dùng chưa chọn tay */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]):not([data-theme="dark"]) {
+    color-scheme: dark;
+    --c-bg: #1a0b16;
+    --c-surface: #26111f;
+    --c-surface-subtle: #2f1526;
+    --c-surface-raised: #331827;
+    --c-fg: #fce7f0;
+    --c-muted: #b497a6;
+    --c-line: #3d1e31;
+    --c-line-strong: #55293f;
+    --c-primary: #fb7185;
+    --c-primary-hover: #fda4af;
+    --c-primary-deep: #fda4af;
+    --c-primary-soft: #4c1530;
+    --c-on-primary: #1a0b16;
+    --c-leaf: #4ade80;
+    --c-leaf-soft: #12341f;
+    --c-amber: #fbbf24;
+    --c-amber-soft: #3b2a0d;
+    --c-overdue: #ff8fa3;
+    --c-overdue-soft: #401224;
+    --c-sky: #7dd3fc;
+    --c-sky-soft: #0c2a3a;
+    --c-grape: #c4b5fd;
+    --c-grape-soft: #2a1a46;
+    --c-overlay: rgb(8 2 6 / 0.62);
+    --pastel-l: 28%;
+    --pastel-s: 45%;
+    --pastel-fg-l: 88%;
+    --shadow-card: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 10px 28px -12px rgb(0 0 0 / 0.6);
+    --shadow-pop: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 20px 44px -12px rgb(0 0 0 / 0.7);
+    --shadow-fab: 0 0 24px -2px rgb(251 113 133 / 0.65), 0 4px 12px rgb(0 0 0 / 0.5);
+    --glow: 0 0 22px -4px rgb(251 113 133 / 0.55);
+    --hero-gradient: linear-gradient(135deg, #9f1239 0%, #be123c 50%, #e11d48 100%);
+    --leaf-gradient: linear-gradient(135deg, #14532d 0%, #166534 50%, #15803d 100%);
+    --sunset-gradient: linear-gradient(135deg, #4c0519 0%, #9f1239 50%, #b45309 100%);
+    --soft-gradient: linear-gradient(160deg, #2f1526 0%, #1a0b16 70%);
+  }
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--c-bg);
+  color: var(--c-fg);
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1;
+}
+
+/* Số liệu thẳng cột */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--c-primary-soft);
+  color: var(--c-primary-deep);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Ô nhập tối thiểu 16px trên điện thoại để iOS không tự zoom */
+input,
+select,
+textarea {
+  font-size: max(16px, 1em);
+}
+
+.bg-hero {
+  background: var(--hero-gradient);
+}
+.bg-leaf-gradient {
+  background: var(--leaf-gradient);
+}
+.bg-sunset {
+  background: var(--sunset-gradient);
+}
+.bg-soft {
+  background: var(--soft-gradient);
+}
+
+/* Lớp hạt chấm nhẹ trên thẻ gradient cho có chiều sâu */
+.sparkle-overlay {
+  background-image:
+    radial-gradient(circle at 20% 20%, rgb(255 255 255 / 0.22) 0 2px, transparent 3px),
+    radial-gradient(circle at 80% 35%, rgb(255 255 255 / 0.18) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 65% 80%, rgb(255 255 255 / 0.15) 0 2px, transparent 3px),
+    radial-gradient(circle at 35% 70%, rgb(255 255 255 / 0.12) 0 1px, transparent 2px);
+}
+
+/* Avatar pastel: hue lấy từ DB, độ sáng đổi theo chế độ sáng/tối */
+.avatar-pastel {
+  background: hsl(var(--hue) var(--pastel-s) var(--pastel-l));
+  color: hsl(var(--hue) 55% var(--pastel-fg-l));
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--c-surface-subtle) 0%,
+    var(--c-line) 50%,
+    var(--c-surface-subtle) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* Vùng an toàn cho iPhone có tai thỏ / thanh home */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  25% {
+    transform: rotate(-6deg);
+  }
+  75% {
+    transform: rotate(6deg);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

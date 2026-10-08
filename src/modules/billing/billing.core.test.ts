@@ -8,6 +8,8 @@ import {
   cycleProgress,
   effectiveUnitPrice,
   firstChildId,
+  invoiceDisplayState,
+  invoiceDue,
   isBillable,
   planCycles,
   reminderTone,
@@ -355,6 +357,43 @@ describe("sổ cái & phân bổ tiền", () => {
 
   it("tiền dư lớn hơn phiếu mới thì cần đóng = 0, không âm", () => {
     expect(amountDueOnInvoice(-900_000, 800_000)).toBe(0);
+  });
+});
+
+describe("trạng thái phiếu & số tiền trên phiếu", () => {
+  const base = { status: "SENT" as const, hasPendingClaim: false, daysSinceSent: 2, overdueAfterDays: 7 };
+
+  it("thứ tự ưu tiên", () => {
+    expect(invoiceDisplayState({ ...base, status: "VOID", paymentState: "PAID" })).toBe("VOID");
+    expect(invoiceDisplayState({ ...base, paymentState: "PAID", hasPendingClaim: true })).toBe("PAID");
+    expect(invoiceDisplayState({ ...base, paymentState: "UNPAID", hasPendingClaim: true })).toBe("CLAIMED");
+    expect(invoiceDisplayState({ ...base, status: "READY", paymentState: "UNPAID", daysSinceSent: null })).toBe("READY");
+    expect(invoiceDisplayState({ ...base, paymentState: "PARTIAL", daysSinceSent: 30 })).toBe("PARTIAL");
+    expect(invoiceDisplayState({ ...base, paymentState: "UNPAID", daysSinceSent: 7 })).toBe("OVERDUE");
+    expect(invoiceDisplayState({ ...base, paymentState: "UNPAID" })).toBe("WAITING");
+  });
+
+  it("cần đóng = nợ phiếu cũ + phần còn thiếu phiếu này (Ví dụ 3)", () => {
+    const { allocations } = allocatePayments(
+      [
+        { id: "p1", amount: 800_000, issuedAt: "2026-10-05" },
+        { id: "p2", amount: 720_000, issuedAt: "2026-11-09" },
+      ],
+      [500_000],
+    );
+    expect(invoiceDue(allocations, "p2")).toEqual({ priorDebt: 300_000, remaining: 720_000, paid: 0, totalDue: 1_020_000 });
+    expect(invoiceDue(allocations, "p1")).toEqual({ priorDebt: 0, remaining: 300_000, paid: 500_000, totalDue: 300_000 });
+  });
+
+  it("tiền thừa tự trừ vào phiếu sau", () => {
+    const { allocations } = allocatePayments(
+      [
+        { id: "p1", amount: 800_000, issuedAt: "2026-09-01" },
+        { id: "p2", amount: 800_000, issuedAt: "2026-10-01" },
+      ],
+      [900_000],
+    );
+    expect(invoiceDue(allocations, "p2").totalDue).toBe(700_000);
   });
 });
 
