@@ -4,18 +4,12 @@ import { useActionState, useState } from "react";
 import { motion } from "motion/react";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 
-import { CherryIcon, Mascot } from "@/components/brand/mascot";
+import { LoginScene } from "@/components/brand/login-scene";
+import { Mascot } from "@/components/brand/mascot";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { loginAction, type LoginState } from "@/modules/auth/auth.actions";
 
-const FLOATERS = [
-  { left: "8%", top: "14%", size: 28, delay: 0 },
-  { left: "82%", top: "10%", size: 22, delay: 0.8 },
-  { left: "70%", top: "62%", size: 34, delay: 1.6 },
-  { left: "14%", top: "70%", size: 20, delay: 0.4 },
-  { left: "46%", top: "84%", size: 26, delay: 1.2 },
-];
 
 export function LoginScreen() {
   const [state, action, pending] = useActionState<LoginState, FormData>(loginAction, undefined);
@@ -23,29 +17,18 @@ export function LoginScreen() {
 
   return (
     <main className="relative grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
-      {/* Khối thương hiệu */}
-      <section className="bg-hero relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-12">
-        <div className="sparkle-overlay absolute inset-0" />
-        {FLOATERS.map((f, i) => (
-          <motion.span
-            key={i}
-            className="absolute opacity-40"
-            style={{ left: f.left, top: f.top }}
-            animate={{ y: [0, -14, 0], rotate: [0, 10, 0] }}
-            transition={{ duration: 5, repeat: Infinity, delay: f.delay, ease: "easeInOut" }}
-          >
-            <CherryIcon size={f.size} />
-          </motion.span>
-        ))}
-        <p className="relative text-xl font-extrabold text-white">TeamCherry</p>
-        <div className="relative">
-          <motion.div initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 200, damping: 14 }}>
-            <Mascot mood="cheer" size={180} />
-          </motion.div>
-          <h1 className="mt-6 max-w-md text-4xl font-extrabold leading-tight text-white">
-            Trên con đường thành công không có dấu chân của kẻ lười biếng.
-          </h1>
-        </div>
+      {/* Khối thương hiệu: tranh con đường lên đỉnh + câu châm ngôn ở giữa */}
+      <section className="relative hidden overflow-hidden lg:flex lg:items-center lg:justify-center lg:p-12">
+        <LoginScene className="absolute inset-0 size-full" />
+        <p className="absolute left-12 top-10 text-xl font-extrabold text-white">TeamCherry</p>
+        <motion.h1
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 160, damping: 20, delay: 0.15 }}
+          className="relative -mt-24 max-w-lg text-center text-4xl font-extrabold leading-tight text-white drop-shadow-[0_2px_12px_rgb(159_18_57/0.35)] xl:text-5xl"
+        >
+          Trên con đường thành công không có dấu chân của kẻ lười biếng.
+        </motion.h1>
       </section>
 
       {/* Form */}
