@@ -31,6 +31,7 @@ export default async function ClassesPage({ searchParams }: { searchParams: Prom
       templates={templates}
       quietHours={settings.quietHours}
       teacherName={settings.teacherName}
+      appUrl={process.env.APP_URL ?? ""}
     />
   );
 }

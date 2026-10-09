@@ -33,6 +33,11 @@ const schema = z.object({
       clearAfterDays: z.coerce.number().int().min(2).max(120),
     })
     .refine((r) => r.clearAfterDays > r.gentleAfterDays, { message: "Mốc 'Nhắc rõ' phải sau mốc 'Nhắc khéo'" }),
+  examDate: z
+    .string()
+    .regex(/^(\d{4}-\d{2}-\d{2})?$/, "Ngày thi chưa đúng")
+    .transform((v) => v || null),
+  gradingComments: z.array(z.string().trim().min(1).max(200)).max(30),
 });
 
 /**
@@ -52,6 +57,8 @@ export async function saveSettingsAction(input: unknown): Promise<ActionResult<n
     await saveSetting("billing", d.billing, tx);
     await saveSetting("bank", d.bank, tx);
     await saveSetting("reminders", d.reminders, tx);
+    await saveSetting("examDate", d.examDate, tx);
+    await saveSetting("gradingComments", d.gradingComments, tx);
     await tx.user.update({ where: { id: user.id }, data: { displayName: d.teacherName } });
     await writeAuditLog(tx, {
       actorId: user.id,

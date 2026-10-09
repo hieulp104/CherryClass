@@ -19,6 +19,7 @@ import { DEFAULT_SETTINGS, saveSetting } from "../src/modules/settings/settings.
 import { addDays, fromDbDate, todayKey, toDbDate, vnDayStartUtc, weekdayOf } from "../src/lib/dates";
 import { hueFromString, removeDiacritics } from "../src/lib/utils";
 import { prisma } from "../src/shared/prisma/prisma.service";
+import { seedPhase2 } from "./seed-phase2";
 
 // ─────────── Số ngẫu nhiên CỐ ĐỊNH (chạy lại ra cùng dữ liệu) ───────────
 let state = 20261008;
@@ -91,6 +92,13 @@ async function wipe() {
   await prisma.invoice.deleteMany();
   await prisma.attendance.deleteMany();
   await prisma.session.deleteMany();
+  await prisma.submissionPage.deleteMany();
+  await prisma.submission.deleteMany();
+  await prisma.assignmentTarget.deleteMany();
+  await prisma.assignmentFile.deleteMany();
+  await prisma.assignment.deleteMany();
+  await prisma.fileAsset.deleteMany();
+  await prisma.parentLink.deleteMany();
   await prisma.studentNote.deleteMany();
   await prisma.student.deleteMany();
   await prisma.siblingGroup.deleteMany();
@@ -122,6 +130,7 @@ async function main() {
   const teacher = await prisma.user.create({
     data: {
       email: process.env.SEED_TEACHER_EMAIL ?? "co.ha@teamcherry.vn",
+      username: (process.env.SEED_TEACHER_EMAIL ?? "co.ha@teamcherry.vn").toLowerCase(),
       passwordHash: await bcrypt.hash(process.env.SEED_DEFAULT_PASSWORD ?? "Cherry@2026", 10),
       displayName: "cô Hà",
       role: "TEACHER",
@@ -502,7 +511,12 @@ async function main() {
   console.log(
     `✅ Xong trong ${((Date.now() - t0) / 1000).toFixed(1)}s: ${nStudents} học sinh · ${nAtt} lượt điểm danh · ${nInv} phiếu (${invoiceCount} tạo qua issueDueInvoices) · ${nPay} khoản thu · ${expenses.length} khoản chi`,
   );
-  console.log(`   Đăng nhập: ${teacher.email} / ${process.env.SEED_DEFAULT_PASSWORD ?? "Cherry@2026"}`);
+  console.log("🍒 Giai đoạn 2: tài khoản, bài tập, bài nộp…");
+  const p2 = await seedPhase2(teacher.id, specialIds, { rand, chance, int, pick });
+  console.log(`   ${p2.pages} trang bài làm đã tải lên MinIO`);
+  console.log(`   Đăng nhập cô giáo: ${teacher.email} / ${process.env.SEED_DEFAULT_PASSWORD ?? "Cherry@2026"}`);
+  console.log(`   Học sinh (Trần Minh Bình, 9A): ${p2.studentLogin} / ${p2.password}`);
+  console.log(`   Phụ huynh (Bình + Châu): ${p2.parentLogin} / ${p2.password}`);
   console.log(`   Hôm nay (VN): ${TODAY} · bắt đầu dữ liệu: ${SEED_START} · ${vnDayStartUtc(TODAY).toISOString()}`);
 }
 

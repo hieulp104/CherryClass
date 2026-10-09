@@ -1,3 +1,4 @@
+import { ungradedCount } from "@/modules/assignments/assignments.service";
 import { listInvoices } from "@/modules/billing/billing.service";
 import { sessionsOn } from "@/modules/classes/classes.service";
 import { incomeOf, outstandingTotal } from "@/modules/finance/finance.service";
@@ -29,7 +30,7 @@ export function quoteOfDay(dateKey: string): string {
 export type TodoItem = {
   key: string;
   priority: number;
-  kind: "OVERDUE" | "READY" | "CLAIMED" | "ABSENT" | "BIRTHDAY" | "UNMARKED";
+  kind: "OVERDUE" | "READY" | "CLAIMED" | "ABSENT" | "BIRTHDAY" | "UNMARKED" | "GRADE";
   title: string;
   detail: string;
   href: string;
@@ -42,7 +43,7 @@ export async function getTodayData() {
   const month = today.slice(0, 7);
   const settings = await getSettings();
 
-  const [sessions, income, outstanding, activeStudents, invoices, absentees, birthdays, unmarked, paidToday] =
+  const [sessions, income, outstanding, activeStudents, invoices, absentees, birthdays, unmarked, paidToday, toGrade] =
     await Promise.all([
       sessionsOn(today),
       incomeOf(month),
@@ -62,6 +63,7 @@ export async function getTodayData() {
         where: { status: "CONFIRMED", paidAt: { gte: vnDayStartUtc(today), lt: vnDayStartUtc(addDays(today, 1)) } },
         _sum: { amount: true },
       }),
+      ungradedCount(),
     ]);
 
   const overdue = invoices.filter((i) => i.state === "OVERDUE");
@@ -114,6 +116,16 @@ export async function getTodayData() {
       detail: "Chưa điểm danh thì chưa đếm buổi được ạ",
       href: "/diem-danh",
       count: unmarked,
+    });
+  if (toGrade)
+    todos.push({
+      key: "grade",
+      priority: 4,
+      kind: "GRADE",
+      title: `${toGrade} bài đang chờ cô chấm`,
+      detail: "Các em nộp rồi, mong điểm lắm ạ ✏️",
+      href: "/bai-tap",
+      count: toGrade,
     });
   for (const a of absentees.slice(0, 5)) {
     todos.push({

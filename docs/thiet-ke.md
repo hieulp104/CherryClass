@@ -427,3 +427,28 @@ sẽ thành bộ **unit test Vitest** cho module `billing` trước khi viết g
 9. Trang "Hôm nay".
 10. Seed: 3 lớp, 150 học sinh tên tiếng Việt, ~8 tuần điểm danh (08/08 → 07/10/2026), phiếu ở đủ trạng thái, chi phí 2 tháng.
 11. PWA manifest + icon, cập nhật `CLAUDE.md` cho repo.
+
+
+---
+
+## 6. Giai đoạn 2 — đã làm (09/10/2026)
+
+**Bảng mới** (migration `phase2_accounts_assignments`): `User.username` (email / SĐT / mã HS) + `studentId` +
+`mustChangePassword`; `ParentLink` (phụ huynh ↔ nhiều con); `FileAsset` (MinIO); `Assignment`, `AssignmentFile`,
+`AssignmentTarget` (nhãn "giao cho"), `Submission` (một dòng / em / bài — chốt lúc giao), `SubmissionPage` (+ lớp chấm PNG).
+
+**Luồng:** cô giao bài cho lớp / ca / từng em → hệ thống chốt danh sách em đang học thành các `Submission` →
+em (hoặc phụ huynh nộp hộ) chụp nhiều trang, ảnh tự xoay + làm nét ở trình duyệt rồi tải lên → cô chấm: khoanh lên ảnh
+(lớp vẽ PNG trong suốt, ảnh gốc giữ nguyên), điểm bước 0,25, nhận xét mẫu, ghi âm → em thấy điểm + nét khoanh + lời nhắn.
+Nộp lại được tới khi cô chấm.
+
+**Vườn cherry:** +1 quả mỗi bài nộp đúng hạn, +1 quả mỗi tuần đi học đủ mọi buổi; huy hiệu ở 5/10/20/35/50 quả.
+Tính từ dữ liệu mỗi lần xem (không lưu điểm thưởng riêng).
+
+**Không áp lực:** không bảng xếp hạng; chỉ "điểm trung bình tháng này so với tháng trước của em"; giảm điểm thì
+động viên, không nêu con số giảm; bài < 5 điểm luôn kèm lời động viên + ô "cần ôn thêm".
+
+**Cổng phụ huynh:** chọn con bằng thanh chip (`?con=`), xem lịch học, chuyên cần, bài & điểm, học phí (link tới phiếu VietQR).
+Phiếu cô CHƯA gửi thì phụ huynh chưa thấy.
+
+**Còn để sau:** thông báo đẩy (push) cho học sinh/phụ huynh — hiện nhắc bằng thẻ trên trang chủ; báo cáo học tập dạng thư (GĐ3).

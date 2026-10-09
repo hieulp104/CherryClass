@@ -22,8 +22,10 @@ export type AppSettings = {
   reminders: { gentleAfterDays: number; clearAfterDays: number };
   /** Giờ yên tĩnh — không gửi gì cho phụ huynh/học sinh. */
   quietHours: { from: string; to: string };
-  /** Ngày thi vào 10 (GĐ2 dùng cho đếm ngược). */
+  /** Ngày thi vào 10 — đếm ngược trên trang của học sinh khối 9. */
   examDate: string | null;
+  /** Nhận xét mẫu chèn một chạm khi chấm bài. */
+  gradingComments: string[];
 };
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -33,6 +35,15 @@ export const DEFAULT_SETTINGS: AppSettings = {
   reminders: { gentleAfterDays: 7, clearAfterDays: 14 },
   quietHours: { from: "21:30", to: "06:30" },
   examDate: null,
+  gradingComments: [
+    "Bài làm rất tốt! 🌟",
+    "Trình bày sạch đẹp, cô khen!",
+    "Tiến bộ nhiều so với bài trước 👏",
+    "Em làm đúng hướng rồi, cẩn thận hơn chút là điểm tối đa.",
+    "Em xem lại phần tính toán nhé.",
+    "Cần ghi rõ lời giải từng bước hơn.",
+    "Nhớ vẽ hình và ghi giả thiết – kết luận.",
+  ],
 };
 
 type Key = keyof AppSettings;
@@ -58,6 +69,7 @@ export async function getSettings(client: Client = prisma): Promise<AppSettings>
     reminders: pick("reminders"),
     quietHours: pick("quietHours"),
     examDate: pick("examDate"),
+    gradingComments: pick("gradingComments"),
   };
 }
 

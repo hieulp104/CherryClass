@@ -7,6 +7,6 @@ import { getCurrentUser } from "@/modules/auth/auth.service";
 export const metadata: Metadata = { title: "Đăng nhập" };
 
 export default async function LoginPage() {
-  if (await getCurrentUser()) redirect("/hom-nay");
+  if (await getCurrentUser()) redirect("/");
   return <LoginScreen />;
 }

@@ -101,20 +101,43 @@ enum BankProvider {
 // ═══════════════════ TÀI KHOẢN & HỆ THỐNG ═══════════════════
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  displayName  String    @map("display_name") // "cô Hà"
-  role         UserRole  @default(TEACHER)
-  isActive     Boolean   @default(true) @map("is_active")
-  lastLoginAt  DateTime? @map("last_login_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
+  id                 String    @id @default(cuid())
+  /// Tên đăng nhập: email (cô giáo) hoặc SĐT / mã học sinh (học sinh, phụ huynh). Chữ thường.
+  username           String    @unique
+  email              String?   @unique
+  passwordHash       String    @map("password_hash")
+  displayName        String    @map("display_name") // "cô Hà", "Nguyễn Văn An", "Chị Lan"
+  role               UserRole  @default(TEACHER)
+  isActive           Boolean   @default(true) @map("is_active")
+  /// Tài khoản cô cấp cho học sinh/phụ huynh: lần đầu đăng nhập phải đổi mật khẩu.
+  mustChangePassword Boolean   @default(false) @map("must_change_password")
+  /// Chỉ có ở tài khoản HỌC SINH (khối 9) — một học sinh một tài khoản.
+  studentId          String?   @unique @map("student_id")
+  lastLoginAt        DateTime? @map("last_login_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
+  student       Student?       @relation("StudentAccount", fields: [studentId], references: [id])
+  parentLinks   ParentLink[]
   auditLogs     AuditLog[]
   notifications Notification[]
+  files         FileAsset[]
 
   @@map("users")
+}
+
+/// Phụ huynh ↔ con (một phụ huynh nhiều con — anh chị em dùng chung một tài khoản).
+model ParentLink {
+  userId    String   @map("user_id")
+  studentId String   @map("student_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, studentId])
+  @@index([studentId])
+  @@map("parent_links")
 }
 
 /// Cấu hình key/value — sửa không cần deploy. Danh sách key: src/modules/settings/settings.service.ts
@@ -266,6 +289,9 @@ model Student {
   invoices     Invoice[]
   payments     Payment[]
   messageLogs  MessageLog[]
+  account      User?         @relation("StudentAccount")
+  parentLinks  ParentLink[]
+  submissions  Submission[]
 
   @@index([classroomId, status])
   @@index([searchName])
@@ -506,6 +532,132 @@ model Expense {
 
   @@index([spentOn])
   @@map("expenses")
+}
+
+// ═══════════════════ FILE (MinIO) ═══════════════════
+
+/// Metadata của một file trên MinIO. Bytes không bao giờ đi thẳng ra trình duyệt bằng URL công khai —
+/// luôn qua /api/tep/[id] để kiểm quyền người xem.
+model FileAsset {
+  id           String   @id @default(cuid())
+  objectKey    String   @unique @map("object_key")
+  fileName     String   @map("file_name")
+  mimeType     String   @map("mime_type")
+  size         Int
+  uploadedById String?  @map("uploaded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  uploadedBy      User?            @relation(fields: [uploadedById], references: [id])
+  assignmentFiles AssignmentFile[]
+  submissionPages SubmissionPage[] @relation("PageFile")
+  annotations     SubmissionPage[] @relation("PageAnnotation")
+  voiceComments   Submission[]     @relation("VoiceComment")
+
+  @@map("file_assets")
+}
+
+// ═══════════════════ BÀI TẬP ═══════════════════
+
+enum AssignmentTargetKind {
+  CLASSROOM
+  SHIFT
+  STUDENT
+}
+
+enum SubmissionStatus {
+  ASSIGNED // chưa nộp
+  SUBMITTED // đã nộp, chờ chấm
+  GRADED // cô đã chấm
+}
+
+model Assignment {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  dueAt       DateTime  @map("due_at")
+  maxScore    Int       @default(10) @map("max_score")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  files       AssignmentFile[]
+  targets     AssignmentTarget[]
+  submissions Submission[]
+
+  @@index([dueAt])
+  @@map("assignments")
+}
+
+model AssignmentFile {
+  assignmentId String @map("assignment_id")
+  fileId       String @map("file_id")
+  sortOrder    Int    @default(0) @map("sort_order")
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  file       FileAsset  @relation(fields: [fileId], references: [id])
+
+  @@id([assignmentId, fileId])
+  @@map("assignment_files")
+}
+
+/// Cô giao cho lớp / ca / từng em — lưu lại để hiển thị "Giao cho: Lớp 9A, Ca 2".
+/// Danh sách học sinh thực nhận được CHỐT thành các dòng Submission lúc giao.
+model AssignmentTarget {
+  id           String               @id @default(cuid())
+  assignmentId String               @map("assignment_id")
+  kind         AssignmentTargetKind
+  refId        String               @map("ref_id")
+  label        String
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+  @@map("assignment_targets")
+}
+
+model Submission {
+  id           String           @id @default(cuid())
+  assignmentId String           @map("assignment_id")
+  studentId    String           @map("student_id")
+  status       SubmissionStatus @default(ASSIGNED)
+  submittedAt  DateTime?        @map("submitted_at")
+  /// Lời nhắn của em khi nộp (không bắt buộc).
+  note         String?
+  /// Điểm theo thang 0–maxScore, bước 0,25. Không phải tiền nên dùng Float.
+  score        Float?
+  comment      String?
+  /// "Cần ôn thêm" — luôn hiện kèm bài điểm thấp.
+  reviewHint   String?          @map("review_hint")
+  voiceFileId  String?          @map("voice_file_id")
+  gradedAt     DateTime?        @map("graded_at")
+  /// Học sinh đã xem điểm (để hiện chấm đỏ "có điểm mới").
+  seenAt       DateTime?        @map("seen_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+
+  assignment Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  student    Student          @relation(fields: [studentId], references: [id])
+  voiceFile  FileAsset?       @relation("VoiceComment", fields: [voiceFileId], references: [id])
+  pages      SubmissionPage[]
+
+  @@unique([assignmentId, studentId])
+  @@index([studentId, status])
+  @@map("submissions")
+}
+
+model SubmissionPage {
+  id               String  @id @default(cuid())
+  submissionId     String  @map("submission_id")
+  fileId           String  @map("file_id")
+  sortOrder        Int     @default(0) @map("sort_order")
+  /// Lớp vẽ khoanh/ghi chú của cô (PNG trong suốt cùng kích thước ảnh).
+  annotationFileId String? @map("annotation_file_id")
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  file       FileAsset  @relation("PageFile", fields: [fileId], references: [id])
+  annotation FileAsset? @relation("PageAnnotation", fields: [annotationFileId], references: [id])
+
+  @@index([submissionId])
+  @@map("submission_pages")
 }
 
 // ═══════════════════ NHẬP EXCEL ═══════════════════

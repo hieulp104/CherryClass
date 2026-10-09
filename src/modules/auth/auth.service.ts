@@ -10,33 +10,51 @@ import { prisma } from "@/shared/prisma/prisma.service";
 async function loadSessionUser(userId: string): Promise<SessionUser | null> {
   const user = await prisma.user.findFirst({
     where: { id: userId, isActive: true },
-    select: { id: true, email: true, displayName: true, role: true },
+    select: {
+      id: true,
+      username: true,
+      displayName: true,
+      role: true,
+      mustChangePassword: true,
+      studentId: true,
+      parentLinks: { select: { studentId: true } },
+    },
   });
-  return user;
+  if (!user) return null;
+  return {
+    id: user.id,
+    username: user.username,
+    displayName: user.displayName,
+    role: user.role,
+    mustChangePassword: user.mustChangePassword,
+    studentId: user.studentId,
+    childIds: user.parentLinks.map((l) => l.studentId),
+  };
 }
 
-/** Nạp lại thông tin tài khoản từ DB định kỳ để khóa tài khoản có hiệu lực mà không phải chờ hết phiên. */
+/** Nạp lại thông tin tài khoản định kỳ: khóa tài khoản / thêm con có hiệu lực mà không phải chờ hết phiên. */
 const SESSION_REVALIDATE_MS = 5 * 60 * 1000;
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,
   providers: [
     Credentials({
       credentials: {
-        email: { label: "Email", type: "email" },
+        login: { label: "Email / SĐT / mã học sinh", type: "text" },
         password: { label: "Mật khẩu", type: "password" },
       },
       async authorize(raw) {
         const parsed = loginSchema.safeParse(raw);
         if (!parsed.success) return null;
-        const user = await prisma.user.findUnique({
-          where: { email: parsed.data.email },
-          select: { id: true, email: true, displayName: true, passwordHash: true, isActive: true },
+        const login = parsed.data.login;
+        const user = await prisma.user.findFirst({
+          where: { OR: [{ username: login }, { email: login }] },
+          select: { id: true, username: true, displayName: true, passwordHash: true, isActive: true },
         });
         if (!user || !user.isActive) return null;
         if (!(await bcrypt.compare(parsed.data.password, user.passwordHash))) return null;
         await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-        return { id: user.id, email: user.email, name: user.displayName };
+        return { id: user.id, name: user.displayName };
       },
     }),
   ],
@@ -69,7 +87,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 export async function getCurrentUser(): Promise<SessionUser | null> {
   const session = await auth();
   const user = session?.user as unknown as SessionUser | undefined;
-  return user?.id ? user : null;
+  return user?.id ? { ...user, childIds: user.childIds ?? [] } : null;
 }
 
 /** Bắt buộc đăng nhập — dùng trong server action. */
@@ -77,4 +95,15 @@ export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) throw new Error("UNAUTHENTICATED");
   return user;
+}
+
+/** Đổi mật khẩu của chính mình (phải đúng mật khẩu cũ). Xong thì bỏ cờ "bắt đổi mật khẩu". */
+export async function changeOwnPassword(userId: string, current: string, next: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
+  if (!user || !(await bcrypt.compare(current, user.passwordHash))) return { ok: false as const, reason: "WRONG_CURRENT" as const };
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: await bcrypt.hash(next, 10), mustChangePassword: false },
+  });
+  return { ok: true as const };
 }

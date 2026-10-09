@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { requirePagePermission } from "@/common/guards/page.guard";
 import { can } from "@/common/permissions/permissions";
+import { accountsOfStudent } from "@/modules/accounts/accounts.service";
 import { listClassrooms } from "@/modules/classes/classes.service";
 import { listTemplates } from "@/modules/messages/messages.service";
 import { getSettings } from "@/modules/settings/settings.service";
@@ -20,11 +21,12 @@ export default async function StudentPage({
 }) {
   const user = await requirePagePermission("student.manage");
   const [{ id }, { nhan }] = await Promise.all([params, searchParams]);
-  const [notebook, classrooms, templates, settings] = await Promise.all([
+  const [notebook, classrooms, templates, settings, accounts] = await Promise.all([
     getStudentNotebook(id, can(user, "student.privateNotes")),
     listClassrooms(),
     listTemplates(),
     getSettings(),
+    accountsOfStudent(id),
   ]);
   if (!notebook) notFound();
   return (
@@ -36,6 +38,8 @@ export default async function StudentPage({
       quietHours={settings.quietHours}
       defaultPrice={settings.billing.defaultUnitPrice}
       openMessage={nhan}
+      accounts={JSON.parse(JSON.stringify(accounts))}
+      appUrl={process.env.APP_URL ?? ""}
     />
   );
 }

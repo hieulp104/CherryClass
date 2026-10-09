@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { StudentAvatar } from "@/components/ui/avatar";
+import { AccountsCard } from "@/modules/accounts/components/account-ui";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Chip, InvoiceStateChip, Notice } from "@/components/ui/feedback";
@@ -60,6 +61,8 @@ export function StudentNotebookView({
   quietHours,
   defaultPrice,
   openMessage,
+  accounts,
+  appUrl,
 }: {
   data: Data;
   classrooms: ClassroomOption[];
@@ -68,6 +71,8 @@ export function StudentNotebookView({
   quietHours: { from: string; to: string };
   defaultPrice: number;
   openMessage?: string;
+  accounts: React.ComponentProps<typeof AccountsCard>["accounts"];
+  appUrl: string;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -288,6 +293,10 @@ export function StudentNotebookView({
               </Info>
             )}
           </Card>
+
+          {/* Tài khoản */}
+          <SectionTitle>Tài khoản đăng nhập</SectionTitle>
+          <AccountsCard studentId={student.id} grade={student.classroom.grade} accounts={accounts} appUrl={appUrl} teacherName={teacherName} />
 
           {/* Riêng tư */}
           <SectionTitle>Riêng tư — chỉ cô thấy</SectionTitle>

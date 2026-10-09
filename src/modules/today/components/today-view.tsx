@@ -12,6 +12,7 @@ import {
   Gift,
   Hourglass,
   MessageCircleHeart,
+  PenLine,
   Send,
   Sparkles,
   Users,
@@ -36,6 +37,7 @@ const TODO_META: Record<TodoItem["kind"], { icon: LucideIcon; tone: "overdue" | 
   UNMARKED: { icon: CalendarCheck2, tone: "amber" },
   ABSENT: { icon: MessageCircleHeart, tone: "grape" },
   BIRTHDAY: { icon: Gift, tone: "leaf" },
+  GRADE: { icon: PenLine, tone: "primary" },
 };
 
 /** Đồng hồ VN cập nhật mỗi 30 giây (đếm ngược tới giờ vào lớp). */

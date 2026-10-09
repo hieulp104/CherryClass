@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   BarChart3,
+  BookOpenCheck,
   Bell,
   Home,
   LogOut,
@@ -42,6 +43,7 @@ const NAV: NavItem[] = [
 ];
 
 const MORE: NavItem[] = [
+  { href: "/bai-tap", label: "Bài tập", icon: BookOpenCheck },
   { href: "/hoc-sinh", label: "Học sinh", icon: Users },
   { href: "/cai-dat", label: "Cài đặt", icon: Settings },
 ];

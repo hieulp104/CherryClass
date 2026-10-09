@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { Landmark, MessageSquareHeart, Pencil, Plus, Receipt, Search, Trash2, UserRound, Users, X } from "lucide-react";
+import { GraduationCap, Landmark, MessageSquareHeart, Pencil, Plus, Receipt, Search, Trash2, UserRound, Users, X } from "lucide-react";
 
 import { StudentAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -86,6 +86,11 @@ function GeneralForm({ settings }: { settings: AppSettings }) {
           accountName: String(fd.get("accountName") ?? ""),
         },
         reminders: { gentleAfterDays: fd.get("gentleAfterDays"), clearAfterDays: fd.get("clearAfterDays") },
+        examDate: String(fd.get("examDate") ?? ""),
+        gradingComments: String(fd.get("gradingComments") ?? "")
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter(Boolean),
       });
       if (!res.ok) return setError(res.message);
       toast.success("Đã lưu cài đặt 🍒");
@@ -200,6 +205,18 @@ function GeneralForm({ settings }: { settings: AppSettings }) {
             <Input name="accountName" defaultValue={settings.bank.accountName} className="uppercase" />
           </Field>
         </div>
+      </Card>
+
+      <Card className="space-y-4 p-5">
+        <h2 className="flex items-center gap-2 text-lg font-bold">
+          <GraduationCap className="size-5 text-primary" /> Bài tập & thi vào 10
+        </h2>
+        <Field label="Ngày thi vào lớp 10" hint="Học sinh khối 9 thấy đồng hồ đếm ngược kèm lời động viên">
+          <Input type="date" name="examDate" defaultValue={settings.examDate ?? ""} />
+        </Field>
+        <Field label="Nhận xét mẫu khi chấm bài" hint="Mỗi dòng một câu — chạm một lần là chèn vào nhận xét">
+          <Textarea name="gradingComments" rows={6} defaultValue={settings.gradingComments.join("\n")} />
+        </Field>
       </Card>
 
       {error && <Notice tone="overdue">{error}</Notice>}

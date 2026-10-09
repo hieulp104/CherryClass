@@ -67,12 +67,12 @@ export function LoginScreen() {
             </p>
           </div>
           <div className="rounded-sheet border border-line bg-surface p-6 shadow-pop sm:p-8">
-            <h2 className="text-h1 font-extrabold tracking-tight">Chào cô quay lại!</h2>
-            <p className="mt-1 text-sm text-muted">Đăng nhập để xem lớp hôm nay nhé.</p>
+            <h2 className="text-h1 font-extrabold tracking-tight">Chào mừng quay lại!</h2>
+            <p className="mt-1 text-sm text-muted">Cô giáo, học sinh và phụ huynh đều đăng nhập ở đây nhé.</p>
 
             <form action={action} className="mt-6 flex flex-col gap-4">
-              <Field label="Email" htmlFor="email">
-                <Input id="email" name="email" type="email" autoComplete="username" required placeholder="co.ha@teamcherry.vn" />
+              <Field label="Tên đăng nhập" htmlFor="login" hint="Email của cô, hoặc SĐT / mã học sinh cô đã gửi">
+                <Input id="login" name="login" type="text" autoComplete="username" autoCapitalize="none" required placeholder="vd: 0912345678" />
               </Field>
               <Field label="Mật khẩu" htmlFor="password">
                 <div className="relative">

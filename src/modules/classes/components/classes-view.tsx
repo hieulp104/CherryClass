@@ -23,6 +23,7 @@ import {
   saveShiftAction,
 } from "@/modules/classes/classes.actions";
 import type { ClassroomWithShifts } from "@/modules/classes/classes.service";
+import { ClassAccountsButton } from "@/modules/accounts/components/account-ui";
 import { MessageComposer } from "@/modules/messages/components/message-composer";
 import type { TemplateItem } from "@/modules/messages/messages.service";
 import { addDays, fullDate, shortDate, WEEKDAY_LONG, WEEKDAY_SHORT } from "@/lib/dates";
@@ -44,6 +45,7 @@ export function ClassesView({
   templates,
   quietHours,
   teacherName,
+  appUrl,
 }: {
   classrooms: Classroom[];
   sessions: WeekSession[];
@@ -53,6 +55,7 @@ export function ClassesView({
   templates: TemplateItem[];
   quietHours: { from: string; to: string };
   teacherName: string;
+  appUrl: string;
 }) {
   const [view, setView] = useState(initialView);
   const [classSheet, setClassSheet] = useState<Classroom | "new" | null>(null);
@@ -146,6 +149,7 @@ export function ClassesView({
                       >
                         <Plus className="size-4" /> Thêm ca
                       </button>
+                      <ClassAccountsButton classroomId={c.id} grade={c.grade} appUrl={appUrl} teacherName={teacherName} />
                     </Card>
                   </motion.div>
                 ))}
