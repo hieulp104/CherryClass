@@ -43,13 +43,9 @@ export function LoginScreen() {
             <Mascot mood="cheer" size={180} />
           </motion.div>
           <h1 className="mt-6 max-w-md text-4xl font-extrabold leading-tight text-white">
-            Điểm danh xong trong 20 giây. Học phí tự đếm, không bao giờ sai.
+            Trên con đường thành công không có dấu chân của kẻ lười biếng.
           </h1>
-          <p className="mt-3 max-w-md text-white/85">
-            Để cô dành thời gian cho học trò — phần sổ sách, Bé Cherry lo ạ 🍒
-          </p>
         </div>
-        <p className="relative text-sm text-white/70">Dành riêng cho lớp của cô · {new Date().getFullYear()}</p>
       </section>
 
       {/* Form */}
@@ -67,12 +63,11 @@ export function LoginScreen() {
             </p>
           </div>
           <div className="rounded-sheet border border-line bg-surface p-6 shadow-pop sm:p-8">
-            <h2 className="text-h1 font-extrabold tracking-tight">Chào mừng quay lại!</h2>
-            <p className="mt-1 text-sm text-muted">Cô giáo, học sinh và phụ huynh đều đăng nhập ở đây nhé.</p>
+            <h2 className="text-h1 font-extrabold tracking-tight">Đăng nhập</h2>
 
             <form action={action} className="mt-6 flex flex-col gap-4">
-              <Field label="Tên đăng nhập" htmlFor="login" hint="Email của cô, hoặc SĐT / mã học sinh cô đã gửi">
-                <Input id="login" name="login" type="text" autoComplete="username" autoCapitalize="none" required placeholder="vd: 0912345678" />
+              <Field label="Tên đăng nhập" htmlFor="login">
+                <Input id="login" name="login" type="text" autoComplete="username" autoCapitalize="none" required />
               </Field>
               <Field label="Mật khẩu" htmlFor="password">
                 <div className="relative">
@@ -105,7 +100,7 @@ export function LoginScreen() {
               )}
               <Button type="submit" size="lg" block loading={pending}>
                 {!pending && <LogIn className="size-5" />}
-                Vào lớp thôi
+                Đăng nhập
               </Button>
             </form>
           </div>
