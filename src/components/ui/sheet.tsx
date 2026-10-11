@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useDragControls } from "motion/react";
 import { X } from "lucide-react";
@@ -8,6 +8,9 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const noopSubscribe = () => () => {};
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
  * Hộp thoại đáp ứng: điện thoại = bottom sheet kéo xuống để đóng; màn rộng = hộp giữa màn hình.
@@ -31,18 +34,53 @@ export function Sheet({
   size?: "sm" | "md" | "lg";
 }) {
   const drag = useDragControls();
+  const panelRef = useRef<HTMLElement>(null);
+  const titleId = useId();
+  const descId = useId();
+  // onClose thường là hàm viết tại chỗ — đọc qua effect event để effect không chạy lại mỗi lần render
+  // (chạy lại sẽ trả focus ra ngoài rồi kéo vào, làm mất con trỏ đang gõ).
+  const close = useEffectEvent(() => onClose());
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // Đưa focus vào hộp thoại (trừ khi ô autoFocus bên trong đã nhận focus).
+    const raf = requestAnimationFrame(() => {
+      const panel = panelRef.current;
+      if (panel && !panel.contains(document.activeElement)) panel.focus({ preventScroll: true });
+    });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        close();
+        return;
+      }
+      // Giữ Tab vòng trong hộp thoại.
+      const panel = panelRef.current;
+      if (e.key !== "Tab" || !panel) return;
+      const items = [...panel.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((el) => el.offsetParent !== null);
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey && (active === first || active === panel)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || !panel.contains(active))) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
+      cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
+      // Trả focus về nút đã mở hộp thoại (nếu nút đó còn trên trang).
+      if (opener?.isConnected) opener.focus({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [open]);
 
   // false khi render server và lúc hydrate → không lệch HTML; true ngay sau đó để portal ra <body>.
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
@@ -60,9 +98,12 @@ export function Sheet({
             onClick={onClose}
           />
           <motion.section
+            ref={panelRef}
             role="dialog"
             aria-modal="true"
-            aria-label={typeof title === "string" ? title : undefined}
+            aria-labelledby={titleId}
+            aria-describedby={description ? descId : undefined}
+            tabIndex={-1}
             initial={{ y: "100%", opacity: 0.6 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: "100%", opacity: 0 }}
@@ -76,7 +117,7 @@ export function Sheet({
               if (info.offset.y > 120 || info.velocity.y > 600) onClose();
             }}
             className={cn(
-              "relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-sheet border border-line bg-surface-raised shadow-pop sm:rounded-sheet",
+              "relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-sheet outline-none border border-line bg-surface-raised shadow-pop sm:rounded-sheet",
               size === "sm" && "sm:max-w-md",
               size === "md" && "sm:max-w-xl",
               size === "lg" && "sm:max-w-3xl",
@@ -93,8 +134,14 @@ export function Sheet({
               onPointerDown={(e) => drag.start(e)}
             >
               <div className="min-w-0">
-                <h2 className="text-h2 font-bold tracking-tight">{title}</h2>
-                {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
+                <h2 id={titleId} className="text-h2 font-bold tracking-tight text-balance">
+                  {title}
+                </h2>
+                {description && (
+                  <p id={descId} className="mt-0.5 text-sm text-muted">
+                    {description}
+                  </p>
+                )}
               </div>
               <button
                 type="button"
@@ -105,7 +152,7 @@ export function Sheet({
                 <X className="size-4" />
               </button>
             </header>
-            <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-6">{children}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5 sm:px-6">{children}</div>
             {footer && <footer className="pb-safe border-t border-line bg-surface-raised px-5 py-3 sm:px-6">{footer}</footer>}
           </motion.section>
         </div>

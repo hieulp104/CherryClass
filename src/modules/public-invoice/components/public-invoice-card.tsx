@@ -260,9 +260,10 @@ function CopyRow({ label, value, onCopy }: { label: string; value: string; onCop
   const [done, setDone] = useState(false);
   return (
     <div className="flex items-center justify-between gap-2 rounded-control bg-surface px-3 py-2">
-      <span className="text-muted">{label}</span>
+      <span className="shrink-0 whitespace-nowrap text-muted">{label}</span>
       <span className="flex min-w-0 items-center gap-2">
-        <span className="truncate font-semibold">{value}</span>
+        {/* Không cắt bớt: phụ huynh có thể gõ tay nội dung chuyển khoản, phải thấy đủ. */}
+        <span className="min-w-0 break-words text-right font-semibold">{value}</span>
         {onCopy && (
           <button
             type="button"
@@ -272,7 +273,7 @@ function CopyRow({ label, value, onCopy }: { label: string; value: string; onCop
               setDone(true);
               setTimeout(() => setDone(false), 1500);
             }}
-            className="grid size-7 shrink-0 place-items-center rounded-full bg-primary-soft text-primary active:scale-90"
+            className="grid size-9 shrink-0 place-items-center rounded-full bg-primary-soft text-primary active:scale-90"
           >
             {done ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
           </button>

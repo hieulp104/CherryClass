@@ -4,7 +4,7 @@ import { requirePagePermission } from "@/common/guards/page.guard";
 import { TodayView } from "@/modules/today/components/today-view";
 import { getTodayData } from "@/modules/today/today.service";
 
-export const metadata: Metadata = { title: "Hôm nay" };
+export const metadata: Metadata = { title: "Tổng quan" };
 
 export default async function TodayPage() {
   await requirePagePermission("attendance.manage");

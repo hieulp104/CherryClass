@@ -49,8 +49,8 @@ export function PageHeader({
 
 export function SectionTitle({ children, action, className }: { children: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <div className={cn("mb-3 mt-7 flex items-center justify-between gap-3", className)}>
-      <h2 className="text-lg font-bold tracking-tight">{children}</h2>
+    <div className={cn("mb-3 mt-7 flex flex-wrap items-center justify-between gap-x-3 gap-y-2", className)}>
+      <h2 className="text-lg font-bold tracking-tight text-balance">{children}</h2>
       {action}
     </div>
   );
@@ -63,24 +63,36 @@ export function Segmented<T extends string>({
   options,
   className,
   layoutId = "segmented",
+  label,
 }: {
   value: T;
   onChange: (value: T) => void;
   options: { value: T; label: ReactNode; count?: number }[];
   className?: string;
   layoutId?: string;
+  /** Tên nhóm cho trình đọc màn hình, vd "Lọc theo lớp". */
+  label?: string;
 }) {
   return (
-    <div className={cn("no-scrollbar flex gap-1 overflow-x-auto rounded-full bg-surface-subtle p-1", className)}>
+    <div
+      role="group"
+      aria-label={label}
+      className={cn("no-scrollbar flex gap-1 overflow-x-auto rounded-full bg-surface-subtle p-1", className)}
+    >
       {options.map((o) => {
         const active = o.value === value;
         return (
           <button
             key={o.value}
             type="button"
-            onClick={() => onChange(o.value)}
+            aria-pressed={active}
+            onClick={(e) => {
+              onChange(o.value);
+              // Thanh cuộn ngang trên điện thoại: kéo nút vừa chọn vào tầm nhìn.
+              e.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+            }}
             className={cn(
-              "relative flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-semibold transition-colors",
+              "relative flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
               active ? "text-primary-deep" : "text-muted hover:text-foreground",
             )}
           >

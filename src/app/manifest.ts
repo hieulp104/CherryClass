@@ -5,7 +5,8 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "TeamCherry — Lớp học của cô",
     short_name: "TeamCherry",
     description: "Điểm danh, học phí, thu chi cho lớp dạy thêm",
-    start_url: "/hom-nay",
+    // "/" tự chuyển tới trang chủ theo vai trò — học sinh / phụ huynh cài app cũng mở đúng chỗ.
+    start_url: "/",
     scope: "/",
     display: "standalone",
     orientation: "portrait",

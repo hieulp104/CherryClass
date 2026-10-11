@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis, ResponsiveContainer, Legend } from "recharts";
 import {
   ChevronLeft,
@@ -201,10 +201,10 @@ export function FinanceView({
                   </div>
                   <div className="mt-1.5 h-3 overflow-hidden rounded-full bg-surface-subtle">
                     <motion.div
-                      className="h-full rounded-full"
-                      style={{ background: c.color }}
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(c.amount / max) * 100}%` }}
+                      className="h-full origin-left rounded-full"
+                      style={{ background: c.color, width: `${(c.amount / max) * 100}%` }}
+                      initial={{ scaleX: 0 }}
+                      animate={{ scaleX: 1 }}
                       transition={{ duration: 0.9, delay: 0.2 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
                     />
                   </div>
@@ -223,22 +223,34 @@ export function FinanceView({
             </div>
           </Card>
 
-          {/* Tiết kiệm thời gian */}
-          <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}>
-            <Card variant="leaf" className="relative mt-5 overflow-hidden p-5">
-              <div className="sparkle-overlay absolute inset-0" />
-              <div className="relative flex items-center gap-4">
-                <Clock4 className="size-12 shrink-0 text-white/70" />
-                <div>
-                  <p className="text-sm font-semibold text-white/80">Thời gian cô đã tiết kiệm</p>
-                  <p className="text-3xl font-extrabold">
-                    ~<CountUp value={overview.savedHours} format={(n) => formatNumber(n)} /> giờ
-                  </p>
-                  <p className="text-sm text-white/85">nhờ điểm danh & tính tiền tự động</p>
+          {/* Tiết kiệm thời gian — chưa có buổi nào xong thì chưa có gì để khoe, ẩn đi. */}
+          {overview.savedMinutes > 0 && (
+            <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}>
+              <Card variant="leaf" className="relative mt-5 overflow-hidden p-5">
+                <div className="sparkle-overlay absolute inset-0" />
+                <div className="relative flex items-center gap-4">
+                  <Clock4 className="size-12 shrink-0 text-white/70" />
+                  <div>
+                    <p className="text-sm font-semibold text-white/80">Thời gian cô đã tiết kiệm</p>
+                    {/* Dưới 1 giờ thì đếm phút — CountUp làm tròn số nguyên, "0,4 giờ" sẽ thành "0 giờ". */}
+                    <p className="text-3xl font-extrabold">
+                      ~
+                      {overview.savedMinutes < 60 ? (
+                        <>
+                          <CountUp value={overview.savedMinutes} /> phút
+                        </>
+                      ) : (
+                        <>
+                          <CountUp value={Math.round(overview.savedMinutes / 60)} format={(n) => formatNumber(n)} /> giờ
+                        </>
+                      )}
+                    </p>
+                    <p className="text-sm text-white/85">nhờ điểm danh & tính tiền tự động</p>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          </motion.div>
+              </Card>
+            </motion.div>
+          )}
         </div>
 
         {/* Chi phí */}
@@ -264,9 +276,10 @@ export function FinanceView({
                     </div>
                     <div className="mt-1 h-2 overflow-hidden rounded-full bg-surface-subtle">
                       <motion.div
-                        className="h-full rounded-full bg-[var(--chart-expense)]"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(c.amount / Math.max(1, overview.expense)) * 100}%` }}
+                        className="h-full origin-left rounded-full bg-[var(--chart-expense)]"
+                        style={{ width: `${(c.amount / Math.max(1, overview.expense)) * 100}%` }}
+                        initial={{ scaleX: 0 }}
+                        animate={{ scaleX: 1 }}
                         transition={{ duration: 0.8, delay: 0.1 + i * 0.07 }}
                       />
                     </div>
@@ -280,34 +293,20 @@ export function FinanceView({
       </div>
 
       {/* Còn nợ */}
-      <SectionTitle>Các em còn nợ</SectionTitle>
+      <SectionTitle
+        action={overview.debts.length > 0 ? <span className="text-sm font-semibold text-muted">{overview.debts.length} em</span> : null}
+      >
+        Các em còn nợ
+      </SectionTitle>
       {overview.debts.length === 0 ? (
         <EmptyState mood="celebrate" title="Không em nào còn nợ!" description="Học phí đâu vào đấy hết rồi ạ 🎉" />
       ) : (
-        <Card className="divide-y divide-line">
-          {overview.debts.slice(0, 30).map((d, i) => (
-            <motion.div key={d.studentId} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(i, 12) * 0.03 }}>
-              <Link href={d.oldestInvoiceId ? `/thu-tien/${d.oldestInvoiceId}` : `/hoc-sinh/${d.studentId}`} className="flex items-center gap-3 p-3.5 transition hover:bg-surface-subtle">
-                <StudentAvatar name={d.fullName} hue={d.avatarHue} size={40} />
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 truncate font-semibold">
-                    {d.fullName}
-                    {d.hardship && <HeartHandshake className="size-4 text-grape" />}
-                  </p>
-                  <p className="text-caption text-muted">
-                    {d.classroom} · {d.invoiceCount} phiếu · {d.daysOutstanding} ngày
-                  </p>
-                </div>
-                <span className={cn("font-bold tabular", d.daysOutstanding >= 14 ? "text-overdue" : "text-amber")}>{formatVnd(d.balance)}</span>
-              </Link>
-            </motion.div>
-          ))}
-        </Card>
+        <DebtList debts={overview.debts} />
       )}
 
       <Card variant="subtle" className="mt-6 flex flex-wrap items-center gap-3 p-4">
-        <HardDriveDownload className="size-7 text-sky" />
-        <div className="min-w-0 flex-1">
+        <HardDriveDownload className="size-7 shrink-0 text-sky" />
+        <div className="min-w-[12rem] flex-1">
           <p className="font-semibold">Sao lưu toàn bộ dữ liệu</p>
           <p className="text-sm text-muted">Học sinh, điểm danh, phiếu thu, thu chi — trong một file Excel.</p>
         </div>
@@ -318,6 +317,108 @@ export function FinanceView({
 
       <ExpenseSheet open={expenseSheet} onClose={() => setExpenseSheet(false)} categories={categories} />
     </div>
+  );
+}
+
+const DEBT_PAGE_SIZE = 10;
+
+/** Tối đa 5 số trang quanh trang đang xem — 150 em = 15 trang vẫn vừa màn điện thoại. */
+function pageWindow(current: number, pages: number, size = 5) {
+  const start = Math.max(0, Math.min(current - Math.floor(size / 2), pages - size));
+  return Array.from({ length: Math.min(size, pages) }, (_, i) => start + i);
+}
+
+/** Các em còn nợ — 10 em một trang, nợ nhiều và lâu nhất lên đầu (thứ tự từ debtList). */
+function DebtList({ debts }: { debts: FinanceOverview["debts"] }) {
+  const [page, setPage] = useState(0);
+  const pages = Math.ceil(debts.length / DEBT_PAGE_SIZE);
+  const current = Math.min(page, pages - 1);
+  const rows = debts.slice(current * DEBT_PAGE_SIZE, (current + 1) * DEBT_PAGE_SIZE);
+  const from = current * DEBT_PAGE_SIZE + 1;
+  const to = from + rows.length - 1;
+
+  return (
+    <Card className="overflow-hidden">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={current}
+          className="divide-y divide-line"
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {rows.map((d) => (
+            <Link
+              key={d.studentId}
+              href={d.oldestInvoiceId ? `/thu-tien/${d.oldestInvoiceId}` : `/hoc-sinh/${d.studentId}`}
+              className="flex items-center gap-3 p-3.5 transition hover:bg-surface-subtle"
+            >
+              <StudentAvatar name={d.fullName} hue={d.avatarHue} size={40} />
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 truncate font-semibold">
+                  {d.fullName}
+                  {d.hardship && <HeartHandshake className="size-4 text-grape" />}
+                </p>
+                <p className="text-caption text-muted">
+                  {d.classroom} · {d.invoiceCount} phiếu · {d.daysOutstanding} ngày
+                </p>
+              </div>
+              <span className={cn("font-bold tabular", d.daysOutstanding >= 14 ? "text-overdue" : "text-amber")}>{formatVnd(d.balance)}</span>
+            </Link>
+          ))}
+        </motion.div>
+      </AnimatePresence>
+
+      {pages > 1 && (
+        <div className="flex items-center justify-between gap-3 border-t border-line px-3.5 py-2.5">
+          <span className="text-sm text-muted tabular">
+            {from}–{to} / {debts.length} em
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage(current - 1)}
+              disabled={current === 0}
+              aria-label="Trang trước"
+              className="grid size-9 place-items-center rounded-control transition hover:bg-surface-subtle disabled:pointer-events-none disabled:opacity-35"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            {pageWindow(current, pages).map((i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setPage(i)}
+                aria-current={i === current ? "page" : undefined}
+                className={cn(
+                  "relative grid size-9 place-items-center rounded-control text-sm font-semibold tabular transition-colors",
+                  i === current ? "text-on-primary" : "text-muted hover:bg-surface-subtle hover:text-foreground",
+                )}
+              >
+                {i === current && (
+                  <motion.span
+                    layoutId="debt-page"
+                    className="absolute inset-0 rounded-control bg-primary"
+                    transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                  />
+                )}
+                <span className="relative">{i + 1}</span>
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setPage(current + 1)}
+              disabled={current === pages - 1}
+              aria-label="Trang sau"
+              className="grid size-9 place-items-center rounded-control transition hover:bg-surface-subtle disabled:pointer-events-none disabled:opacity-35"
+            >
+              <ChevronRight className="size-4" />
+            </button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -382,7 +483,7 @@ function ExpenseList({ expenses }: { expenses: Expense[] }) {
         <motion.div key={e.id} layout className="group flex items-center gap-3 p-3.5">
           <CategoryIcon name={e.category.icon} color={e.category.color} size={38} />
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold">{e.note || e.category.name}</p>
+            <p className="line-clamp-2 break-words font-semibold">{e.note || e.category.name}</p>
             <p className="text-caption text-muted">
               {e.category.name} · {shortDate(fromDbDate(new Date(e.spentOn)))}
             </p>

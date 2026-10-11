@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { createContext, forwardRef, useContext, useId, useState, type ChangeEvent, type ReactNode } from "react";
 import { motion } from "motion/react";
 
 import { cn } from "@/lib/utils";
@@ -8,16 +8,43 @@ import { cn } from "@/lib/utils";
 const fieldBase =
   "w-full rounded-control border border-line-strong bg-surface px-3.5 text-foreground placeholder:text-muted/70 transition-[border-color,box-shadow] focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15 disabled:opacity-60";
 
+/**
+ * `<Field>` chia id cho ô nhập bên trong: nhãn bấm được, trình đọc màn hình đọc đúng tên ô,
+ * gợi ý / lỗi gắn qua aria-describedby. Ô nào truyền `id` riêng thì giữ id đó.
+ */
+const FieldContext = createContext<{ id: string; describedBy?: string; invalid: boolean } | null>(null);
+
+function useFieldProps<T extends { id?: string; "aria-describedby"?: string; "aria-invalid"?: React.AriaAttributes["aria-invalid"] }>(
+  props: T,
+): T {
+  const field = useContext(FieldContext);
+  if (!field) return props;
+  return {
+    ...props,
+    id: props.id ?? field.id,
+    "aria-describedby": props["aria-describedby"] ?? field.describedBy,
+    "aria-invalid": props["aria-invalid"] ?? (field.invalid || undefined),
+  };
+}
+
 export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(function Input(
   { className, ...props },
   ref,
 ) {
-  return <input ref={ref} className={cn(fieldBase, "min-h-11 py-2", className)} {...props} />;
+  const fieldProps = useFieldProps(props);
+  return <input ref={ref} className={cn(fieldBase, "min-h-11 py-2", className)} {...fieldProps} />;
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
   function Textarea({ className, ...props }, ref) {
-    return <textarea ref={ref} className={cn(fieldBase, "min-h-24 py-2.5 leading-relaxed", className)} {...props} />;
+    const fieldProps = useFieldProps(props);
+    return (
+      <textarea
+        ref={ref}
+        className={cn(fieldBase, "min-h-24 py-2.5 leading-relaxed", className)}
+        {...fieldProps}
+      />
+    );
   },
 );
 
@@ -25,7 +52,8 @@ export const Select = forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<H
   { className, ...props },
   ref,
 ) {
-  return <select ref={ref} className={cn(fieldBase, "min-h-11 appearance-auto py-2", className)} {...props} />;
+  const fieldProps = useFieldProps(props);
+  return <select ref={ref} className={cn(fieldBase, "min-h-11 appearance-auto py-2", className)} {...fieldProps} />;
 });
 
 export function Label({ className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
@@ -47,16 +75,26 @@ export function Field({
   className?: string;
   htmlFor?: string;
 }) {
+  const autoId = useId();
+  const id = htmlFor ?? autoId;
+  const noteId = `${id}-note`;
+  const hasNote = Boolean(error || hint);
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <Label htmlFor={htmlFor}>{label}</Label>
-      {children}
-      {error ? (
-        <p className="text-caption font-medium text-overdue">{error}</p>
-      ) : hint ? (
-        <p className="text-caption text-muted">{hint}</p>
-      ) : null}
-    </div>
+    <FieldContext.Provider value={{ id, describedBy: hasNote ? noteId : undefined, invalid: Boolean(error) }}>
+      <div className={cn("flex flex-col gap-1.5", className)}>
+        <Label htmlFor={id}>{label}</Label>
+        {children}
+        {error ? (
+          <p id={noteId} role="alert" className="text-caption font-medium text-overdue">
+            {error}
+          </p>
+        ) : hint ? (
+          <p id={noteId} className="text-caption text-muted">
+            {hint}
+          </p>
+        ) : null}
+      </div>
+    </FieldContext.Provider>
   );
 }
 

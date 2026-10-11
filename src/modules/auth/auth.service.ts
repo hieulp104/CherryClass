@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { cache } from "react";
 
 import type { SessionUser } from "@/common/permissions/permissions";
 import { authConfig } from "@/modules/auth/auth.config";
@@ -84,11 +85,12 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   },
 });
 
-export async function getCurrentUser(): Promise<SessionUser | null> {
+/** Một request chỉ đọc phiên một lần — layout, guard và trang đều gọi hàm này (React.cache theo request). */
+export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
   const session = await auth();
   const user = session?.user as unknown as SessionUser | undefined;
   return user?.id ? { ...user, childIds: user.childIds ?? [] } : null;
-}
+});
 
 /** Bắt buộc đăng nhập — dùng trong server action. */
 export async function requireUser(): Promise<SessionUser> {

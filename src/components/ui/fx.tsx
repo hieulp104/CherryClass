@@ -38,9 +38,11 @@ export function CountUp({
   }, [inView, value, duration, reduce]);
 
   // Giảm chuyển động → hiện thẳng số cuối, không chạy.
+  // Trình đọc màn hình chỉ đọc số cuối (không bao giờ đọc "0 đồng" khi số còn đang chạy).
   return (
     <span ref={ref} className={cn("tabular", className)}>
-      {format(reduce ? value : animated)}
+      <span aria-hidden>{format(reduce ? value : animated)}</span>
+      <span className="sr-only">{format(value)}</span>
     </span>
   );
 }

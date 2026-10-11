@@ -117,7 +117,10 @@ export function GradingView({
           <div className="min-w-0 flex-1">
             <p className="truncate font-extrabold">{queue.title}</p>
             <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-line">
-              <motion.div className="h-full rounded-full bg-leaf" animate={{ width: `${(graded / subs.length) * 100}%` }} />
+              <motion.div
+                className="h-full w-full origin-left rounded-full bg-leaf"
+                animate={{ scaleX: subs.length ? graded / subs.length : 0 }}
+              />
             </div>
           </div>
           <span className="shrink-0 text-sm font-bold tabular">

@@ -108,7 +108,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={api}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[70] flex flex-col items-center gap-2 px-4 lg:bottom-6">
+      <div
+        role="region"
+        aria-label="Thông báo"
+        aria-live="polite"
+        className="pointer-events-none fixed inset-x-0 bottom-24 z-[70] flex flex-col items-center gap-2 px-4 lg:bottom-6"
+      >
         <AnimatePresence initial={false}>
           {items.map((t) => (
             <motion.div
@@ -118,6 +123,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.95 }}
               transition={{ type: "spring", stiffness: 420, damping: 30 }}
+              role={t.kind === "error" ? "alert" : "status"}
               className={cn(
                 "pointer-events-auto relative w-full max-w-md overflow-hidden rounded-[18px] border px-4 py-3 shadow-pop backdrop-blur",
                 t.kind === "error"
@@ -146,9 +152,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               </div>
               {t.undo && (
                 <motion.span
-                  className="absolute bottom-0 left-0 h-1 bg-primary"
-                  initial={{ width: "100%" }}
-                  animate={{ width: "0%" }}
+                  className="absolute bottom-0 left-0 h-1 w-full origin-left bg-primary"
+                  initial={{ scaleX: 1 }}
+                  animate={{ scaleX: 0 }}
                   transition={{ duration: t.duration / 1000, ease: "linear" }}
                 />
               )}

@@ -7,10 +7,10 @@ import { motion } from "motion/react";
 import { BookOpenCheck, Home, KeyRound, LogOut, Sprout, Star, Wallet, type LucideIcon } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand/mascot";
+import { LogoutForm } from "@/components/layout/logout-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { StudentAvatar } from "@/components/ui/avatar";
 import { Sheet } from "@/components/ui/sheet";
-import { logoutAction } from "@/modules/auth/auth.actions";
 import { cn, givenName } from "@/lib/utils";
 
 export type FrameProps = {
@@ -57,11 +57,12 @@ export function PortalFrame({ frame, children }: { frame: FrameProps; children: 
           </button>
         </div>
         {isParent && frame.children.length > 1 && (
-          <div className="no-scrollbar mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 pb-2.5">
+          <nav aria-label="Chọn con" className="no-scrollbar mx-auto flex max-w-3xl gap-2 overflow-x-auto px-4 pb-2.5">
             {frame.children.map((c) => (
               <Link
                 key={c.id}
                 href={`${pathname}?con=${c.id}`}
+                aria-current={c.id === frame.studentId ? "true" : undefined}
                 className={cn(
                   "relative flex shrink-0 items-center gap-2 rounded-full py-1 pl-1 pr-3 text-sm font-semibold",
                   c.id === frame.studentId ? "text-primary-deep" : "text-muted",
@@ -76,7 +77,7 @@ export function PortalFrame({ frame, children }: { frame: FrameProps; children: 
                 </span>
               </Link>
             ))}
-          </div>
+          </nav>
         )}
       </header>
 
@@ -91,12 +92,17 @@ export function PortalFrame({ frame, children }: { frame: FrameProps; children: 
         {children}
       </motion.main>
 
-      <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-line/70 bg-surface/90 backdrop-blur-lg">
+      <nav aria-label="Điều hướng chính" className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-line/70 bg-surface/90 backdrop-blur-lg">
         <div className="mx-auto grid h-16 max-w-lg grid-cols-4 items-center">
           {nav.map((item) => {
             const on = active(item.path);
             return (
-              <Link key={item.path} href={portalHref(frame, item.path)} className="relative flex flex-col items-center gap-0.5 py-1.5">
+              <Link
+                key={item.path}
+                href={portalHref(frame, item.path)}
+                aria-current={on ? "page" : undefined}
+                className="relative flex flex-col items-center gap-0.5 py-1.5"
+              >
                 {on && (
                   <motion.span layoutId="portal-tab" className="absolute top-0.5 h-8 w-14 rounded-full bg-primary-soft" transition={{ type: "spring", stiffness: 420, damping: 32 }} />
                 )}
@@ -119,11 +125,11 @@ export function PortalFrame({ frame, children }: { frame: FrameProps; children: 
           <Link href="/doi-mat-khau" className="flex items-center gap-3 rounded-control border border-line px-4 py-3 font-semibold">
             <KeyRound className="size-5 text-muted" /> Đổi mật khẩu
           </Link>
-          <form action={logoutAction}>
+          <LogoutForm>
             <button type="submit" className="flex w-full items-center justify-center gap-2 rounded-control py-3 font-semibold text-overdue hover:bg-overdue-soft">
               <LogOut className="size-4" /> Đăng xuất
             </button>
-          </form>
+          </LogoutForm>
         </div>
       </Sheet>
     </div>

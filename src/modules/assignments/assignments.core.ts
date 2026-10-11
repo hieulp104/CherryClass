@@ -64,14 +64,30 @@ export function monthAverage(graded: readonly { month: string; score: number; ma
 
 /**
  * Câu so sánh với chính mình. Không bao giờ chê: giảm thì động viên, không nhắc con số giảm.
+ * `child` = tên con khi PHỤ HUYNH đọc — câu gọi tên con thay vì "em".
  */
-export function selfComparison(thisMonth: number | null, lastMonth: number | null): { tone: "up" | "same" | "down" | "none"; text: string } {
-  if (thisMonth === null) return { tone: "none", text: "Tháng này chưa có bài được chấm — nộp bài để cô xem nhé!" };
-  if (lastMonth === null) return { tone: "none", text: `Điểm trung bình tháng này của em: ${formatScore(thisMonth)} 🌱` };
+export function selfComparison(
+  thisMonth: number | null,
+  lastMonth: number | null,
+  child?: string,
+): { tone: "up" | "same" | "down" | "none"; text: string } {
+  const who = child ?? "em";
+  if (thisMonth === null)
+    return {
+      tone: "none",
+      text: child ? `Tháng này ${child} chưa có bài được chấm.` : "Tháng này chưa có bài được chấm — nộp bài để cô xem nhé!",
+    };
+  if (lastMonth === null) return { tone: "none", text: `Điểm trung bình tháng này của ${who}: ${formatScore(thisMonth)} 🌱` };
   const diff = Math.round((thisMonth - lastMonth) * 100) / 100;
-  if (diff >= 0.1) return { tone: "up", text: `Điểm trung bình tháng này của em tăng ${formatScore(diff)} so với tháng trước 🎉` };
-  if (diff > -0.1) return { tone: "same", text: "Em đang giữ phong độ rất đều — tiếp tục nhé! 💪" };
-  return { tone: "down", text: "Tháng này hơi khó một chút, nhưng em vẫn đang cố gắng. Cô tin em sẽ lấy lại nhịp! 💗" };
+  if (diff >= 0.1) return { tone: "up", text: `Điểm trung bình tháng này của ${who} tăng ${formatScore(diff)} so với tháng trước 🎉` };
+  if (diff > -0.1)
+    return { tone: "same", text: child ? `${child} đang giữ phong độ rất đều 💪` : "Em đang giữ phong độ rất đều — tiếp tục nhé! 💪" };
+  return {
+    tone: "down",
+    text: child
+      ? `Tháng này hơi khó một chút, nhưng ${child} vẫn đang cố gắng. Một lời động viên ở nhà sẽ giúp con nhiều lắm 💗`
+      : "Tháng này hơi khó một chút, nhưng em vẫn đang cố gắng. Cô tin em sẽ lấy lại nhịp! 💗",
+  };
 }
 
 const LOW_SCORE_CHEERS = [

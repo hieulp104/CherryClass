@@ -32,6 +32,8 @@ export function useThemeMode() {
     } catch {
       // trình duyệt chặn localStorage — vẫn đổi được trong phiên này
     }
+    // Thanh trình duyệt đổi màu theo (hàm khai báo trong script đầu trang, app/layout.tsx).
+    (window as { __tcThemeColor?: (m: Mode) => void }).__tcThemeColor?.(m);
     window.dispatchEvent(new Event(EVENT));
   };
   return { mode, cycle: () => apply(NEXT[mode]) };

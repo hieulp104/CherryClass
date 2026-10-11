@@ -1,25 +1,24 @@
-import { ungradedCount } from "@/modules/assignments/assignments.service";
 import { listInvoices } from "@/modules/billing/billing.service";
 import { sessionsOn } from "@/modules/classes/classes.service";
-import { incomeOf, outstandingTotal } from "@/modules/finance/finance.service";
+import { incomeSamePeriodLastMonth, incomeTrend, outstandingTotal } from "@/modules/finance/finance.service";
 import { getSettings } from "@/modules/settings/settings.service";
-import { addDays, diffDays, fromDbDate, todayKey, toDbDate, vnDayStartUtc, vnNow } from "@/lib/dates";
-import { givenName } from "@/lib/utils";
+import { addDays, diffDays, fromDbDate, shortDate, todayKey, toDbDate, vnDayStartUtc, vnNow } from "@/lib/dates";
+import { formatVnd } from "@/lib/utils";
 import { prisma } from "@/shared/prisma/prisma.service";
 
 const QUOTES = [
-  "Mỗi buổi dạy là một hạt giống — cô đang chăm cả một vườn cherry đó ạ 🍒",
+  "Mỗi buổi dạy là một hạt giống — cô đang chăm cả một vườn cherry.",
   "Học trò nhớ cô không phải vì bài khó, mà vì cô đã tin các em.",
-  "Cô nhớ uống nước và nghỉ giọng giữa các ca nhé 💧",
-  "Hôm nay sẽ có một em hiểu bài nhờ cô. Tuyệt ghê!",
-  "Chậm mà chắc — cherry chín đỏ cũng cần đủ nắng mà.",
-  "Cô kiên nhẫn với học trò rồi, hôm nay kiên nhẫn với chính mình nữa nhé.",
+  "Nhớ uống nước và nghỉ giọng giữa các ca nhé.",
+  "Hôm nay sẽ có một em hiểu bài nhờ cô.",
+  "Chậm mà chắc — cherry chín đỏ cũng cần đủ nắng.",
+  "Kiên nhẫn với học trò rồi, hôm nay kiên nhẫn với chính mình nữa nhé.",
   "Một lời khen đúng lúc có thể thay đổi cả năm học của một em.",
-  "Lớp học vui là vì có cô ở đó ✨",
-  "Mệt thì nghỉ chút xíu, việc đếm buổi tính tiền để em lo ạ!",
+  "Lớp học vui là vì có cô ở đó.",
+  "Việc đếm buổi, tính tiền để app lo — cô chỉ cần dạy.",
   "Điều các em nhớ mãi là cách cô đối xử với các em.",
-  "Cô đã làm rất tốt rồi. Thật đấy ạ 💗",
-  "Một ngày bận rộn nữa — nhưng cô làm được mà!",
+  "Cô đã làm rất tốt rồi.",
+  "Một ngày bận rộn nữa — nhưng cô làm được.",
 ];
 
 export function quoteOfDay(dateKey: string): string {
@@ -27,15 +26,23 @@ export function quoteOfDay(dateKey: string): string {
   return QUOTES[((day % QUOTES.length) + QUOTES.length) % QUOTES.length];
 }
 
-export type TodoItem = {
-  key: string;
-  priority: number;
-  kind: "OVERDUE" | "READY" | "CLAIMED" | "ABSENT" | "BIRTHDAY" | "UNMARKED" | "GRADE";
-  title: string;
-  detail: string;
+export type AttentionKind = "CLAIMED" | "OVERDUE" | "READY" | "UNMARKED" | "GRADE" | "ABSENT" | "BIRTHDAY";
+
+export type AttentionItem = { key: string; label: string; sub?: string; badge: string; href: string };
+
+/** Một nhóm trong "Việc cần chú ý" — theo bố cục QLNS: nhãn nhóm + vài dòng cụ thể. */
+export type AttentionGroup = {
+  kind: AttentionKind;
+  label: string;
+  /** Con số hiện bên phải (vd số BÀI NỘP chờ chấm). */
+  total: number;
+  /** Số mục cùng loại với `items` (vd số ĐỀ có bài chờ chấm) — dùng cho "và N nữa". Mặc định = total. */
+  itemTotal?: number;
   href: string;
-  count?: number;
+  items: AttentionItem[];
 };
+
+const ATTENTION_LIMIT = 4;
 
 export async function getTodayData() {
   const now = vnNow();
@@ -43,111 +50,158 @@ export async function getTodayData() {
   const month = today.slice(0, 7);
   const settings = await getSettings();
 
-  const [sessions, income, outstanding, activeStudents, invoices, absentees, birthdays, unmarked, paidToday, toGrade] =
-    await Promise.all([
-      sessionsOn(today),
-      incomeOf(month),
-      outstandingTotal(),
-      prisma.student.count({ where: { status: "ACTIVE", deletedAt: null } }),
-      listInvoices(),
-      consecutiveAbsentees(today),
-      birthdaysOn(today),
-      prisma.session.count({
-        where: {
-          status: "SCHEDULED",
-          date: { gte: toDbDate(addDays(today, -7)), lt: toDbDate(today) },
-          shift: { active: true, classroom: { archivedAt: null } },
-        },
-      }),
-      prisma.payment.aggregate({
-        where: { status: "CONFIRMED", paidAt: { gte: vnDayStartUtc(today), lt: vnDayStartUtc(addDays(today, 1)) } },
-        _sum: { amount: true },
-      }),
-      ungradedCount(),
-    ]);
+  const [
+    sessions,
+    trend,
+    incomePrev,
+    outstanding,
+    activeStudents,
+    invoices,
+    absentees,
+    birthdays,
+    unmarked,
+    paidToday,
+    toGrade,
+    classrooms,
+  ] = await Promise.all([
+    sessionsOn(today),
+    incomeTrend(month, 6),
+    incomeSamePeriodLastMonth(today),
+    outstandingTotal(),
+    prisma.student.count({ where: { status: "ACTIVE", deletedAt: null } }),
+    listInvoices(),
+    consecutiveAbsentees(today),
+    birthdaysOn(today),
+    prisma.session.findMany({
+      where: {
+        status: "SCHEDULED",
+        date: { gte: toDbDate(addDays(today, -7)), lt: toDbDate(today) },
+        shift: { active: true, classroom: { archivedAt: null } },
+      },
+      orderBy: [{ date: "desc" }, { startTime: "desc" }],
+      select: {
+        id: true,
+        date: true,
+        startTime: true,
+        shift: { select: { name: true, classroom: { select: { name: true } } } },
+      },
+    }),
+    prisma.payment.aggregate({
+      where: { status: "CONFIRMED", paidAt: { gte: vnDayStartUtc(today), lt: vnDayStartUtc(addDays(today, 1)) } },
+      _sum: { amount: true },
+    }),
+    ungradedByAssignment(),
+    prisma.classroom.findMany({
+      where: { archivedAt: null },
+      orderBy: [{ grade: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        grade: true,
+        color: true,
+        _count: { select: { students: { where: { status: "ACTIVE", deletedAt: null } } } },
+      },
+    }),
+  ]);
 
-  const overdue = invoices.filter((i) => i.state === "OVERDUE");
-  const ready = invoices.filter((i) => i.state === "READY");
-  const claimed = invoices.filter((i) => i.state === "CLAIMED");
+  const byState = (...states: string[]) => invoices.filter((i) => states.includes(i.state));
+  const overdue = byState("OVERDUE");
+  const ready = byState("READY");
+  const claimed = byState("CLAIMED");
+  const waiting = byState("WAITING", "PARTIAL");
 
-  const names = (list: { student: { fullName: string } }[]) =>
-    list
-      .slice(0, 3)
-      .map((i) => givenName(i.student.fullName))
-      .join(", ") + (list.length > 3 ? ` và ${list.length - 3} em nữa` : "");
+  const invoiceItem = (i: (typeof invoices)[number], badge: string): AttentionItem => ({
+    key: i.id,
+    label: i.student.fullName,
+    sub: i.student.classroom,
+    badge,
+    href: `/thu-tien/${i.id}`,
+  });
 
-  const todos: TodoItem[] = [];
+  const attention: AttentionGroup[] = [];
   if (claimed.length)
-    todos.push({
-      key: "claimed",
-      priority: 1,
+    attention.push({
       kind: "CLAIMED",
-      title: `${claimed.length} phụ huynh báo đã chuyển khoản`,
-      detail: `${names(claimed)} — cô đối chiếu rồi xác nhận một chạm nhé`,
+      label: "Phụ huynh báo đã chuyển khoản",
+      total: claimed.length,
       href: "/thu-tien?tab=CLAIMED",
-      count: claimed.length,
+      items: claimed.slice(0, ATTENTION_LIMIT).map((i) => invoiceItem(i, formatVnd(i.claim?.amount ?? i.totalDue))),
     });
   if (overdue.length)
-    todos.push({
-      key: "overdue",
-      priority: 2,
+    attention.push({
       kind: "OVERDUE",
-      title: `${overdue.length} phiếu đã quá ${settings.reminders.gentleAfterDays} ngày`,
-      detail: `${names(overdue)} — app đã soạn sẵn lời nhắc khéo`,
+      label: `Phiếu quá ${settings.reminders.gentleAfterDays} ngày chưa đóng`,
+      total: overdue.length,
       href: "/thu-tien?tab=OVERDUE",
-      count: overdue.length,
+      items: [...overdue]
+        .sort((a, b) => (b.daysSinceSent ?? 0) - (a.daysSinceSent ?? 0))
+        .slice(0, ATTENTION_LIMIT)
+        .map((i) => invoiceItem(i, `gửi ${i.daysSinceSent ?? 0} ngày`)),
     });
   if (ready.length)
-    todos.push({
-      key: "ready",
-      priority: 3,
+    attention.push({
       kind: "READY",
-      title: `Cô ơi, có ${ready.length} em đủ buổi rồi ạ`,
-      detail: `${names(ready)} — phiếu thu đã sẵn sàng để gửi`,
+      label: "Đủ buổi — phiếu thu chờ gửi",
+      total: ready.length,
       href: "/thu-tien?tab=READY",
-      count: ready.length,
+      items: ready.slice(0, ATTENTION_LIMIT).map((i) => invoiceItem(i, formatVnd(i.totalDue))),
     });
-  if (unmarked)
-    todos.push({
-      key: "unmarked",
-      priority: 4,
+  if (unmarked.length)
+    attention.push({
       kind: "UNMARKED",
-      title: `${unmarked} buổi tuần qua chưa điểm danh`,
-      detail: "Chưa điểm danh thì chưa đếm buổi được ạ",
+      label: "Buổi tuần qua chưa điểm danh",
+      total: unmarked.length,
       href: "/diem-danh",
-      count: unmarked,
+      items: unmarked.slice(0, ATTENTION_LIMIT).map((s) => ({
+        key: s.id,
+        label: `${s.shift.classroom.name} · ${s.shift.name}`,
+        badge: `${shortDate(fromDbDate(s.date))} · ${s.startTime}`,
+        href: `/diem-danh/${s.id}`,
+      })),
     });
-  if (toGrade)
-    todos.push({
-      key: "grade",
-      priority: 4,
+  const toGradeTotal = toGrade.reduce((sum, a) => sum + a.count, 0);
+  if (toGradeTotal)
+    attention.push({
       kind: "GRADE",
-      title: `${toGrade} bài đang chờ cô chấm`,
-      detail: "Các em nộp rồi, mong điểm lắm ạ ✏️",
+      label: "Bài nộp chờ chấm",
+      total: toGradeTotal,
+      itemTotal: toGrade.length,
       href: "/bai-tap",
-      count: toGrade,
+      items: toGrade.slice(0, ATTENTION_LIMIT).map((a) => ({
+        key: a.id,
+        label: a.title,
+        badge: `${a.count} bài`,
+        href: `/bai-tap/${a.id}/cham`,
+      })),
     });
-  for (const a of absentees.slice(0, 5)) {
-    todos.push({
-      key: `absent-${a.id}`,
-      priority: 5,
+  if (absentees.length)
+    attention.push({
       kind: "ABSENT",
-      title: `${givenName(a.fullName)} vắng ${a.streak} buổi liền`,
-      detail: `${a.classroom} — hỏi thăm phụ huynh một câu nhé`,
-      href: `/hoc-sinh/${a.id}?nhan=ABSENCE_CHECK`,
+      label: "Vắng nhiều buổi liền",
+      total: absentees.length,
+      href: "/hoc-sinh",
+      items: absentees.slice(0, ATTENTION_LIMIT).map((a) => ({
+        key: a.id,
+        label: a.fullName,
+        sub: a.classroom,
+        badge: `vắng ${a.streak} buổi`,
+        href: `/hoc-sinh/${a.id}?nhan=ABSENCE_CHECK`,
+      })),
     });
-  }
-  for (const b of birthdays) {
-    todos.push({
-      key: `bday-${b.id}`,
-      priority: 6,
+  if (birthdays.length)
+    attention.push({
       kind: "BIRTHDAY",
-      title: `Hôm nay sinh nhật ${givenName(b.fullName)} 🎂`,
-      detail: `${b.classroom} — gửi con một lời chúc nhé`,
-      href: `/hoc-sinh/${b.id}?nhan=BIRTHDAY`,
+      label: "Sinh nhật hôm nay",
+      total: birthdays.length,
+      href: "/hoc-sinh",
+      items: birthdays.slice(0, ATTENTION_LIMIT).map((b) => ({
+        key: b.id,
+        label: b.fullName,
+        sub: b.classroom,
+        badge: "gửi lời chúc",
+        href: `/hoc-sinh/${b.id}?nhan=BIRTHDAY`,
+      })),
     });
-  }
-  todos.sort((a, b) => a.priority - b.priority);
 
   // Tổng kết cuối ngày: chỉ hiện khi hôm nay có dạy và mọi buổi đã xong / hủy.
   const taught = sessions.filter((s) => s.status === "COMPLETED");
@@ -167,24 +221,61 @@ export async function getTodayData() {
     };
   }
 
+  const current = trend.at(-1)!;
+
   return {
     now,
     teacherName: settings.teacherName,
     quote: quoteOfDay(today),
     sessions,
     stats: {
-      income: income.amount,
-      incomeCount: income.count,
+      income: current.amount,
+      incomeCount: current.count,
+      incomePrev,
+      trend: trend.map((t) => ({ label: t.label, amount: t.amount })),
       outstanding: outstanding.total,
       outstandingStudents: outstanding.students,
       activeStudents,
+      classroomCount: classrooms.length,
     },
-    todos,
+    attention,
+    // Chỉ đếm số phiếu — số tiền còn thu đã có ở thẻ "Còn cần thu" (tính từ sổ cái).
+    billing: [
+      { tab: "READY", label: "Cần gửi", count: ready.length },
+      { tab: "CLAIMED", label: "Chờ xác nhận", count: claimed.length },
+      { tab: "WAITING", label: "Chờ đóng", count: waiting.length },
+      { tab: "OVERDUE", label: "Quá hạn", count: overdue.length },
+    ] as const,
+    classrooms: classrooms.map((c) => ({
+      id: c.id,
+      name: c.name,
+      grade: c.grade,
+      color: c.color,
+      count: c._count.students,
+    })),
     summary,
   };
 }
 
 export type TodayData = Awaited<ReturnType<typeof getTodayData>>;
+
+/** Bài còn bài nộp chưa chấm, nhiều nhất lên trước. */
+async function ungradedByAssignment() {
+  const groups = await prisma.submission.groupBy({
+    by: ["assignmentId"],
+    where: { status: "SUBMITTED", assignment: { archivedAt: null } },
+    _count: { _all: true },
+  });
+  if (groups.length === 0) return [];
+  const assignments = await prisma.assignment.findMany({
+    where: { id: { in: groups.map((g) => g.assignmentId) } },
+    select: { id: true, title: true },
+  });
+  const title = new Map(assignments.map((a) => [a.id, a.title]));
+  return groups
+    .map((g) => ({ id: g.assignmentId, title: title.get(g.assignmentId) ?? "Bài tập", count: g._count._all }))
+    .sort((a, b) => b.count - a.count);
+}
 
 /** Em đang học vắng ≥ 2 buổi liên tiếp gần nhất (trong 21 ngày qua). */
 async function consecutiveAbsentees(today: string) {

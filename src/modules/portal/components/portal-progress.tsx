@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState, InvoiceStateChip } from "@/components/ui/feedback";
 import { CountUp } from "@/components/ui/fx";
 import { PageHeader, SectionTitle } from "@/components/ui/page";
-import { BADGES, formatScore } from "@/modules/assignments/assignments.core";
+import { BADGES, formatScore, selfComparison } from "@/modules/assignments/assignments.core";
 import type { StudentProgress } from "@/modules/assignments/assignments.service";
 import { portalHref, type FrameProps } from "@/modules/portal/components/portal-frame";
 import type { PortalFees } from "@/modules/portal/portal.service";
@@ -88,7 +88,13 @@ export function GardenView({ progress, isParent, childName }: { progress: Studen
         {g.next && (
           <div className="mx-auto mt-3 max-w-sm">
             <div className="h-2.5 overflow-hidden rounded-full bg-surface">
-              <motion.div className="h-full rounded-full bg-primary" initial={{ width: 0 }} animate={{ width: `${g.progress * 100}%` }} transition={{ duration: 1.2, delay: 0.4 }} />
+              <motion.div
+                className="h-full origin-left rounded-full bg-primary"
+                style={{ width: `${g.progress * 100}%` }}
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: 1 }}
+                transition={{ duration: 1.2, delay: 0.4 }}
+              />
             </div>
             <p className="mt-1 text-center text-caption text-muted">
               Còn {g.next.at - g.fruits} quả để mở {g.next.emoji} {g.next.name}
@@ -131,13 +137,15 @@ export function GardenView({ progress, isParent, childName }: { progress: Studen
 
 export function ScoresView({ progress, isParent, childName, frame }: { progress: StudentProgress; isParent: boolean; childName: string; frame: FrameProps }) {
   const data = progress.scores.map((s) => ({ ...s, label: shortDate(s.date) }));
+  // Phụ huynh đọc: câu gọi tên con thay vì "em".
+  const comparison = isParent ? selfComparison(progress.thisAvg, progress.lastAvg, childName) : progress.comparison;
   return (
     <div className="space-y-4">
       <PageHeader title={isParent ? `Điểm của ${childName}` : "Điểm của em"} subtitle="Chỉ so với chính mình — không xếp hạng" />
       <Card className="p-5">
         <div className="flex items-center gap-3">
-          <Mascot mood={progress.comparison.tone === "up" ? "celebrate" : "happy"} size={64} />
-          <p className="font-semibold leading-snug">{progress.comparison.text}</p>
+          <Mascot mood={comparison.tone === "up" ? "celebrate" : "happy"} size={64} />
+          <p className="font-semibold leading-snug">{comparison.text}</p>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-3 text-center">
           <div className="rounded-control bg-surface-subtle p-3">
@@ -230,13 +238,15 @@ export function FeesView({ fees, childName }: { fees: PortalFees; childName: str
             <a key={inv.id} href={`/p/${inv.token}`} className="flex items-center gap-3 p-4 transition hover:bg-surface-subtle">
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">
-                  {inv.code} · {inv.sessionCount} buổi
+                  {inv.sessionCount} buổi <span className="font-normal text-muted">· {inv.code}</span>
                 </p>
-                <p className="text-caption text-muted">{formatDate(inv.issuedAt)}</p>
+                <p className="text-caption text-muted">Phát hành {formatDate(inv.issuedAt)}</p>
+                <InvoiceStateChip state={inv.state} className="mt-1.5" />
               </div>
-              <InvoiceStateChip state={inv.state} />
-              <span className="w-24 text-right font-bold tabular">{formatVnd(inv.state === "PAID" ? inv.amount : inv.totalDue)}</span>
-              <ChevronRight className="size-4 text-muted" />
+              <span className="whitespace-nowrap text-right font-bold tabular">
+                {formatVnd(inv.state === "PAID" ? inv.amount : inv.totalDue)}
+              </span>
+              <ChevronRight className="size-4 shrink-0 text-muted" />
             </a>
           ))}
         </Card>

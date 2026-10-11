@@ -214,6 +214,7 @@ export function ImportWizard({ classrooms }: { classrooms: ClassroomOption[] }) 
                       <td className="p-3">
                         <input
                           type="checkbox"
+                          aria-label={`Chọn dòng ${r.rowNumber}${r.fullName ? ` — ${r.fullName}` : ""}`}
                           checked={r.selected}
                           disabled={!r.fullName}
                           onChange={(e) => setRows((list) => list.map((x, j) => (j === i ? { ...x, selected: e.target.checked } : x)))}

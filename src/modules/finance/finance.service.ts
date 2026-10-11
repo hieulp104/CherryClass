@@ -23,6 +23,45 @@ export async function incomeOf(month: string) {
   return { amount: r._sum.amount ?? 0, count: r._count._all };
 }
 
+/** Tiền thu theo từng tháng, `count` tháng tính tới `month` (cũ → mới). Một truy vấn duy nhất. */
+export async function incomeTrend(month: string, count: number) {
+  const months = Array.from({ length: count }, (_, i) => addMonths(month, i - (count - 1)));
+  const payments = await prisma.payment.findMany({
+    where: { status: "CONFIRMED", paidAt: { gte: monthUtcRange(months[0]).gte, lt: monthUtcRange(month).lt } },
+    select: { amount: true, paidAt: true },
+  });
+  return months.map((m) => {
+    const inMonth = payments.filter((p) => todayKey(p.paidAt).slice(0, 7) === m);
+    return {
+      month: m,
+      label: `T${Number(m.slice(5))}`,
+      amount: inMonth.reduce((s, p) => s + p.amount, 0),
+      count: inMonth.length,
+    };
+  });
+}
+
+/**
+ * Thu CÙNG KỲ tháng trước: hôm nay ngày 8 thì lấy ngày 1–8 tháng trước —
+ * so với cả tháng sẽ ra "−90%" vô lý lúc đầu tháng.
+ */
+export async function incomeSamePeriodLastMonth(today: string) {
+  const prevMonth = addMonths(today.slice(0, 7), -1);
+  const { to } = monthRange(prevMonth);
+  const cutDay = Math.min(Number(today.slice(8)), Number(to.slice(8)));
+  const r = await prisma.payment.aggregate({
+    where: {
+      status: "CONFIRMED",
+      paidAt: {
+        gte: vnDayStartUtc(`${prevMonth}-01`),
+        lt: vnDayStartUtc(addDays(`${prevMonth}-${String(cutDay).padStart(2, "0")}`, 1)),
+      },
+    },
+    _sum: { amount: true },
+  });
+  return r._sum.amount ?? 0;
+}
+
 export async function expenseOf(month: string) {
   const r = await prisma.expense.aggregate({
     where: { deletedAt: null, spentOn: monthDateRange(month) },
@@ -140,6 +179,7 @@ export async function financeOverview(month: string) {
     byCategory,
     debts,
     savedHours: Math.round((savedMinutes / 60) * 10) / 10,
+    savedMinutes,
     method: {
       bank: thisMonthPayments.filter((p) => p.method === "BANK_TRANSFER").reduce((s, p) => s + p.amount, 0),
       cash: thisMonthPayments.filter((p) => p.method === "CASH").reduce((s, p) => s + p.amount, 0),

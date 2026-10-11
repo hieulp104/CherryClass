@@ -7,6 +7,7 @@ import { motion } from "motion/react";
 import {
   Cake,
   CalendarDays,
+  ClipboardList,
   ChevronRight,
   HeartHandshake,
   MessageCircleHeart,
@@ -38,6 +39,7 @@ import { RecordPaymentSheet } from "@/modules/billing/components/payment-sheets"
 import { MessageComposer } from "@/modules/messages/components/message-composer";
 import type { TemplateItem } from "@/modules/messages/messages.service";
 import { parentAddress, type MessageKind } from "@/modules/messages/messages.templates";
+import { MonthlyReportSheet } from "@/modules/reports/components/monthly-report-sheet";
 import { StudentForm, type ClassroomOption } from "@/modules/students/components/student-form";
 import { addNoteAction, deleteNoteAction, setHardshipAction, setStudentStatusAction } from "@/modules/students/students.actions";
 import type { StudentNotebook } from "@/modules/students/students.service";
@@ -85,6 +87,7 @@ export function StudentNotebookView({
   const [statusOpen, setStatusOpen] = useState(false);
   const [counterOpen, setCounterOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [confetti, setConfetti] = useState(0);
   const [hardship, setHardship] = useState(student.hardship);
   const [, start] = useTransition();
@@ -100,12 +103,12 @@ export function StudentNotebookView({
       {/* Đầu sổ */}
       <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
         <Card className="overflow-hidden">
-          <div className="bg-soft flex flex-wrap items-center gap-4 p-5">
+          <div className="bg-soft relative flex items-center gap-4 p-5">
             <motion.div initial={{ scale: 0.6, rotate: -10 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 260, damping: 14 }}>
               <StudentAvatar name={student.fullName} hue={student.avatarHue} size={76} />
             </motion.div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-h1 font-extrabold tracking-tight">{student.fullName}</h1>
+              <h1 className="pr-11 text-h1 font-extrabold tracking-tight text-balance sm:pr-20">{student.fullName}</h1>
               <p className="text-muted">
                 {student.classroom.name}
                 {student.shift ? ` · ${student.shift.name}` : " · chưa xếp ca"} · {student.code}
@@ -125,8 +128,16 @@ export function StudentNotebookView({
                 <Chip tone="muted">{data.usesDefaultPrice ? `${formatVnd(data.unitPrice)}/buổi` : `Giá riêng ${formatVnd(data.unitPrice)}/buổi`}</Chip>
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              <Pencil className="size-4" /> Sửa
+            {/* Góc trên phải — không chiếm chỗ của tên em trên điện thoại. */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setEditing(true)}
+              aria-label="Sửa thông tin học sinh"
+              className="absolute right-4 top-4 px-2.5 sm:px-3"
+            >
+              <Pencil className="size-4" />
+              <span className="hidden sm:inline">Sửa</span>
             </Button>
           </div>
 
@@ -156,6 +167,7 @@ export function StudentNotebookView({
       <section className="no-scrollbar -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
         <QuickAction icon={Sparkles} label="Khen con" tone="text-amber" onClick={() => setMsgKind("PRAISE")} />
         <QuickAction icon={MessageCircleHeart} label="Hỏi thăm" tone="text-grape" onClick={() => setMsgKind("ABSENCE_CHECK")} />
+        <QuickAction icon={ClipboardList} label="Báo cáo tháng" tone="text-sky" onClick={() => setReportOpen(true)} />
         <QuickAction icon={Cake} label="Chúc sinh nhật" tone="text-primary" onClick={() => setMsgKind("BIRTHDAY")} />
         <QuickAction icon={Wallet} label="Ghi nhận thu" tone="text-leaf" onClick={() => setPayOpen(true)} />
         <QuickAction icon={UserCog} label="Trạng thái" tone="text-sky" onClick={() => setStatusOpen(true)} />
@@ -167,13 +179,18 @@ export function StudentNotebookView({
           <div className="mt-5 grid grid-cols-2 gap-3">
             <Card className="p-4">
               <p className="text-sm font-semibold text-muted">Chuyên cần (30 buổi gần nhất)</p>
-              <p className="mt-2 text-3xl font-extrabold text-leaf">
+              <p className="mt-2 text-[clamp(1.4rem,6.5vw,1.875rem)] font-extrabold leading-tight text-leaf">
                 {data.presentRate === null ? "—" : <CountUp value={Math.round(data.presentRate * 100)} format={(n) => `${n}%`} />}
               </p>
             </Card>
             <Card className="p-4">
               <p className="text-sm font-semibold text-muted">{data.balance >= 0 ? "Còn cần đóng" : "Đóng thừa"}</p>
-              <p className={cn("mt-2 text-3xl font-extrabold tabular", data.balance > 0 ? "text-amber" : "text-leaf")}>
+              <p
+                className={cn(
+                  "mt-2 whitespace-nowrap text-[clamp(1.4rem,6.5vw,1.875rem)] font-extrabold leading-tight tabular",
+                  data.balance > 0 ? "text-amber" : "text-leaf",
+                )}
+              >
                 <CountUp value={Math.abs(data.balance)} format={formatVnd} />
               </p>
             </Card>
@@ -240,13 +257,13 @@ export function StudentNotebookView({
                 <Link key={inv.id} href={`/thu-tien/${inv.id}`} className="flex items-center gap-3 p-4 transition hover:bg-surface-subtle">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">
-                      {inv.code} · {inv.sessionCount} buổi
+                      {inv.sessionCount} buổi <span className="font-normal text-muted">· {inv.code}</span>
                     </p>
                     <p className="text-caption text-muted">{formatDate(inv.issuedAt)}</p>
+                    <InvoiceStateChip state={inv.state} className="mt-1.5" />
                   </div>
-                  <InvoiceStateChip state={inv.state} />
-                  <span className="w-24 text-right font-bold tabular">{formatVnd(inv.amount)}</span>
-                  <ChevronRight className="size-4 text-muted" />
+                  <span className="whitespace-nowrap text-right font-bold tabular">{formatVnd(inv.amount)}</span>
+                  <ChevronRight className="size-4 shrink-0 text-muted" />
                 </Link>
               ))}
             </Card>
@@ -363,6 +380,7 @@ export function StudentNotebookView({
       </Sheet>
       <StatusSheet open={statusOpen} onClose={() => setStatusOpen(false)} studentId={student.id} current={student.status} />
       <CounterSheet open={counterOpen} onClose={() => setCounterOpen(false)} studentId={student.id} onIssued={() => setConfetti((n) => n + 1)} />
+      <MonthlyReportSheet open={reportOpen} onClose={() => setReportOpen(false)} studentId={student.id} />
       <RecordPaymentSheet
         open={payOpen}
         onClose={() => setPayOpen(false)}

@@ -21,10 +21,10 @@ import {
 
 import { BrandLogo, CherryIcon, Mascot } from "@/components/brand/mascot";
 import { OfflineSync } from "@/components/layout/offline-sync";
+import { LogoutForm } from "@/components/layout/logout-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { StudentAvatar } from "@/components/ui/avatar";
 import { Sheet } from "@/components/ui/sheet";
-import { logoutAction } from "@/modules/auth/auth.actions";
 import {
   listNotificationsAction,
   markAllReadAction,
@@ -36,7 +36,7 @@ import { cn, formatRelativeTime } from "@/lib/utils";
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
 const NAV: NavItem[] = [
-  { href: "/hom-nay", label: "Hôm nay", icon: Home },
+  { href: "/hom-nay", label: "Tổng quan", icon: Home },
   { href: "/lop-hoc", label: "Lớp học", icon: School },
   { href: "/thu-tien", label: "Thu tiền", icon: Wallet },
   { href: "/thong-ke", label: "Thống kê", icon: BarChart3 },
@@ -65,6 +65,7 @@ export function AppShell({
   const [searchOpen, setSearchOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
+  const bellLabel = unread > 0 ? `Thông báo — ${unread} chưa đọc` : "Thông báo";
 
   // Phím tắt "/" hoặc Ctrl+K mở tìm kiếm trên máy tính.
   useEffect(() => {
@@ -82,6 +83,12 @@ export function AppShell({
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[260px_1fr]">
+      <a
+        href="#noi-dung"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[80] focus:rounded-control focus:bg-surface focus:px-4 focus:py-2.5 focus:font-semibold focus:shadow-pop"
+      >
+        Bỏ qua, tới nội dung chính
+      </a>
       <OfflineSync />
       {/* ───── Sidebar máy tính ───── */}
       <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line bg-surface/70 px-4 py-5 backdrop-blur lg:flex">
@@ -103,7 +110,7 @@ export function AppShell({
           <CherryIcon size={26} />
           Điểm danh
         </Link>
-        <nav className="mt-5 flex flex-col gap-1">
+        <nav aria-label="Điều hướng chính" className="mt-5 flex flex-col gap-1">
           {[...NAV, ...MORE].map((item) => (
             <SideLink key={item.href} item={item} active={isActive(pathname, item.href)} />
           ))}
@@ -115,7 +122,7 @@ export function AppShell({
               type="button"
               onClick={() => setBellOpen(true)}
               className="relative grid size-10 place-items-center rounded-full bg-surface-subtle text-muted hover:text-foreground"
-              aria-label="Thông báo"
+              aria-label={bellLabel}
             >
               <Bell className="size-4" />
               {unread > 0 && <Dot count={unread} />}
@@ -127,11 +134,11 @@ export function AppShell({
               <p className="truncate text-sm font-bold">{displayName}</p>
               <p className="text-caption text-muted">Giáo viên</p>
             </div>
-            <form action={logoutAction}>
+            <LogoutForm>
               <button type="submit" aria-label="Đăng xuất" className="grid size-9 place-items-center rounded-full text-muted hover:bg-surface hover:text-overdue">
                 <LogOut className="size-4" />
               </button>
-            </form>
+            </LogoutForm>
           </div>
         </div>
       </aside>
@@ -147,7 +154,7 @@ export function AppShell({
             <IconButton label="Tìm học sinh" onClick={() => setSearchOpen(true)}>
               <Search className="size-5" />
             </IconButton>
-            <IconButton label="Thông báo" onClick={() => setBellOpen(true)}>
+            <IconButton label={bellLabel} onClick={() => setBellOpen(true)}>
               <Bell className="size-5" />
               {unread > 0 && <Dot count={unread} />}
             </IconButton>
@@ -157,7 +164,9 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-6xl px-4 pb-32 pt-4 sm:px-6 lg:px-10 lg:pb-12 lg:pt-8">{children}</main>
+        <main id="noi-dung" tabIndex={-1} className="mx-auto w-full max-w-6xl px-4 pb-32 pt-4 outline-none sm:px-6 lg:px-10 lg:pb-12 lg:pt-8">
+          {children}
+        </main>
       </div>
 
       {/* ───── Thanh điều hướng dưới (điện thoại) ───── */}
@@ -188,14 +197,14 @@ export function AppShell({
           </div>
           <ThemeToggle withLabel />
         </div>
-        <form action={logoutAction} className="mt-3">
+        <LogoutForm className="mt-3">
           <button
             type="submit"
             className="flex w-full items-center justify-center gap-2 rounded-control py-3 font-semibold text-overdue hover:bg-overdue-soft"
           >
             <LogOut className="size-4" /> Đăng xuất
           </button>
-        </form>
+        </LogoutForm>
       </Sheet>
     </div>
   );
@@ -205,6 +214,7 @@ function SideLink({ item, active }: { item: NavItem; active: boolean }) {
   return (
     <Link
       href={item.href}
+      aria-current={active ? "page" : undefined}
       className={cn(
         "relative flex items-center gap-3 rounded-control px-3 py-2.5 font-semibold transition-colors",
         active ? "text-primary-deep" : "text-muted hover:bg-surface-subtle hover:text-foreground",
@@ -228,7 +238,7 @@ function BottomNav({ pathname }: { pathname: string }) {
   const right = NAV.slice(2);
   const onAttendance = pathname.startsWith("/diem-danh");
   return (
-    <nav className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-line/70 bg-surface/90 backdrop-blur-lg lg:hidden">
+    <nav aria-label="Điều hướng chính" className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-line/70 bg-surface/90 backdrop-blur-lg lg:hidden">
       <div className="relative mx-auto grid h-16 max-w-lg grid-cols-5 items-center">
         {left.map((item) => (
           <TabLink key={item.href} item={item} active={isActive(pathname, item.href)} />
@@ -237,6 +247,7 @@ function BottomNav({ pathname }: { pathname: string }) {
           <Link
             href="/diem-danh"
             aria-label="Điểm danh"
+            aria-current={onAttendance ? "page" : undefined}
             className={cn(
               "bg-hero -mt-8 grid size-16 place-items-center rounded-full text-white shadow-fab ring-4 ring-background transition active:scale-90",
               onAttendance && "ring-primary-soft",
@@ -260,7 +271,11 @@ function BottomNav({ pathname }: { pathname: string }) {
 
 function TabLink({ item, active }: { item: NavItem; active: boolean }) {
   return (
-    <Link href={item.href} className="relative flex flex-col items-center gap-0.5 py-1.5">
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className="relative flex flex-col items-center gap-0.5 py-1.5"
+    >
       {active && (
         <motion.span
           layoutId="tab-active"
@@ -294,6 +309,7 @@ function IconButton({ children, label, onClick }: { children: React.ReactNode; l
 function Dot({ count }: { count: number }) {
   return (
     <motion.span
+      aria-hidden
       initial={{ scale: 0 }}
       animate={{ scale: 1 }}
       className="absolute -right-0.5 -top-0.5 grid min-w-[18px] place-items-center rounded-full bg-primary px-1 text-[10px] font-bold leading-[18px] text-on-primary"
@@ -319,6 +335,11 @@ function SearchPalette({ open, onClose }: { open: boolean; onClose: () => void }
         <Search className="absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-muted" />
         <input
           autoFocus
+          type="search"
+          aria-label="Tìm học sinh theo tên, mã hoặc SĐT"
+          autoComplete="off"
+          spellCheck={false}
+          enterKeyHint="go"
           value={q}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Tên, mã HS hoặc SĐT phụ huynh…"
@@ -409,22 +430,41 @@ function NotificationSheet({ open, onClose }: { open: boolean; onClose: () => vo
         <ul className="space-y-2">
           {items.map((n) => (
             <li key={n.id}>
-              <Link
-                href={n.link ?? "#"}
-                onClick={onClose}
-                className={cn(
-                  "block rounded-control border px-3.5 py-3 transition hover:bg-surface-subtle",
-                  n.readAt ? "border-line" : "border-primary/30 bg-primary-soft/40",
-                )}
-              >
-                <p className="font-semibold">{n.title}</p>
-                {n.body && <p className="text-sm text-muted">{n.body}</p>}
-                <p className="mt-1 text-caption text-muted">{formatRelativeTime(n.createdAt)}</p>
-              </Link>
+              {n.link ? (
+                <Link
+                  href={n.link}
+                  onClick={onClose}
+                  className={cn(
+                    "block rounded-control border px-3.5 py-3 transition hover:bg-surface-subtle",
+                    n.readAt ? "border-line" : "border-primary/30 bg-primary-soft/40",
+                  )}
+                >
+                  <NotificationBody n={n} />
+                </Link>
+              ) : (
+                <div
+                  className={cn(
+                    "rounded-control border px-3.5 py-3",
+                    n.readAt ? "border-line" : "border-primary/30 bg-primary-soft/40",
+                  )}
+                >
+                  <NotificationBody n={n} />
+                </div>
+              )}
             </li>
           ))}
         </ul>
       )}
     </Sheet>
+  );
+}
+
+function NotificationBody({ n }: { n: NotificationItem }) {
+  return (
+    <>
+      <p className="font-semibold">{n.title}</p>
+      {n.body && <p className="text-sm text-muted">{n.body}</p>}
+      <p className="mt-1 text-caption text-muted">{formatRelativeTime(n.createdAt)}</p>
+    </>
   );
 }

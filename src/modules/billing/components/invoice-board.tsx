@@ -102,16 +102,24 @@ export function InvoiceBoard({
         <Segmented
           layoutId="bill-tab"
           value={tab}
-          onChange={setTab}
+          onChange={(t) => {
+            setTab(t);
+            // Ghi tab lên URL: mở phiếu rồi bấm quay lại vẫn về đúng tab đang xem.
+            window.history.replaceState(null, "", `?tab=${t}`);
+          }}
           options={TABS.map((t) => ({ value: t.value, label: t.label, count: t.value === "PAID" ? undefined : counts[t.value] }))}
         />
         <div className="relative mt-2">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted" />
           <input
+            type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Lọc theo tên…"
-            className="min-h-10 w-full rounded-full border border-line bg-surface pl-9 pr-3 text-sm focus:border-primary focus:outline-none"
+            aria-label="Lọc phiếu theo tên học sinh"
+            autoComplete="off"
+            spellCheck={false}
+            className="min-h-10 w-full rounded-full border border-line bg-surface pl-9 pr-3 text-sm focus:border-primary focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/15"
           />
         </div>
       </div>
@@ -137,38 +145,38 @@ export function InvoiceBoard({
                 animate={{ opacity: 1, y: 0, transition: { delay: Math.min(i, 12) * 0.03 } }}
                 exit={{ opacity: 0, scale: 0.95 }}
               >
-                <div className="flex items-center gap-3 rounded-card border border-line bg-surface p-3.5 shadow-card">
-                  <Link href={`/thu-tien/${inv.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                    <StudentAvatar name={inv.student.fullName} hue={inv.student.avatarHue} size={46} />
-                    <div className="min-w-0 flex-1">
-                      <p className="flex items-center gap-1.5 truncate font-bold">
-                        {inv.student.fullName}
-                        {inv.student.hardship && <HeartHandshake className="size-4 shrink-0 text-grape" aria-label="Gia đình khó khăn" />}
-                      </p>
-                      <p className="truncate text-caption text-muted">
-                        {inv.student.classroom} · {inv.sessionCount} buổi · {inv.code}
-                        {inv.daysSinceSent !== null && inv.state !== "PAID" ? ` · gửi ${inv.daysSinceSent} ngày trước` : ""}
-                      </p>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                        <InvoiceStateChip state={inv.state} />
-                        {inv.priorDebt > 0 && inv.state !== "PAID" && (
-                          <span className="text-caption font-semibold text-amber">+ nợ cũ {formatVnd(inv.priorDebt)}</span>
-                        )}
+                <div className="rounded-card border border-line bg-surface p-3.5 shadow-card">
+                  <div className="flex items-center gap-3">
+                    <Link href={`/thu-tien/${inv.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                      <StudentAvatar name={inv.student.fullName} hue={inv.student.avatarHue} size={46} />
+                      <div className="min-w-0 flex-1">
+                        <p className="flex min-w-0 items-center gap-1.5 font-bold">
+                          <span className="truncate">{inv.student.fullName}</span>
+                          {inv.student.hardship && <HeartHandshake className="size-4 shrink-0 text-grape" aria-label="Gia đình khó khăn" />}
+                        </p>
+                        <p className="truncate text-caption text-muted">
+                          {inv.student.classroom} · {inv.sessionCount} buổi · {inv.code}
+                          {inv.daysSinceSent !== null && inv.state !== "PAID" ? ` · gửi ${inv.daysSinceSent} ngày trước` : ""}
+                        </p>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                          <InvoiceStateChip state={inv.state} />
+                          {inv.priorDebt > 0 && inv.state !== "PAID" && (
+                            <span className="text-caption font-semibold text-amber">+ nợ cũ {formatVnd(inv.priorDebt)}</span>
+                          )}
+                        </div>
                       </div>
+                      <InvoiceAmount inv={inv} className="hidden sm:block" />
+                    </Link>
+                    <div className="hidden sm:block">
+                      <RowAction inv={inv} onCompose={() => setComposeFor(inv)} onClaim={() => setClaimFor(inv)} />
                     </div>
-                    <div className="text-right">
-                      <p className={cn("text-lg font-extrabold tabular", inv.state === "PAID" ? "text-leaf" : "text-foreground")}>
-                        {formatVnd(inv.state === "PAID" ? inv.amount : inv.totalDue)}
-                      </p>
-                    </div>
-                  </Link>
-                  <div className="hidden sm:block">
+                    <ChevronRight className="size-5 shrink-0 text-muted sm:hidden" />
+                  </div>
+                  {/* Điện thoại: số tiền + việc cần làm nằm ở chân thẻ, tên em không bị cắt. */}
+                  <div className="mt-3 flex min-h-9 items-center justify-between gap-3 border-t border-line pt-3 sm:hidden">
+                    <InvoiceAmount inv={inv} />
                     <RowAction inv={inv} onCompose={() => setComposeFor(inv)} onClaim={() => setClaimFor(inv)} />
                   </div>
-                  <ChevronRight className="size-5 shrink-0 text-muted sm:hidden" />
-                </div>
-                <div className="mt-1.5 flex justify-end sm:hidden">
-                  <RowAction inv={inv} onCompose={() => setComposeFor(inv)} onClaim={() => setClaimFor(inv)} />
                 </div>
               </motion.li>
             ))}
@@ -208,6 +216,14 @@ export function InvoiceBoard({
         onConfirmed={() => setConfetti((n) => n + 1)}
       />
     </div>
+  );
+}
+
+function InvoiceAmount({ inv, className }: { inv: InvoiceListItem; className?: string }) {
+  return (
+    <p className={cn("text-lg font-extrabold tabular", inv.state === "PAID" ? "text-leaf" : "text-foreground", className)}>
+      {formatVnd(inv.state === "PAID" ? inv.amount : inv.totalDue)}
+    </p>
   );
 }
 

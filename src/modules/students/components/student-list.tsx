@@ -66,6 +66,10 @@ export function StudentList({
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-muted" />
           <input
+            type="search"
+            aria-label="Tìm học sinh"
+            autoComplete="off"
+            spellCheck={false}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Tìm tên (gõ không dấu cũng được), SĐT, mã HS…"

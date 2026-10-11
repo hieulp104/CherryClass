@@ -41,6 +41,7 @@ src/
 │   ├── billing/billing.core.ts   ★ MỌI phép tính tiền — hàm thuần, có unit test
 │   ├── assignments/assignments.core.ts  ★ trạng thái bài, điểm, vườn cherry, so với chính mình
 │   ├── accounts/        # cô cấp tài khoản học sinh / phụ huynh (mật khẩu tạm "cherryNNNN")
+│   ├── reports/report.core.ts    # báo cáo tháng gửi phụ huynh — hàm thuần, có test; cô sao chép gửi Zalo
 │   └── portal/          # portal.guard.ts = requirePortal(): vai trò + PHẠM VI em đang xem
 ├── components/{ui,layout,brand}   # brand/mascot.tsx = Bé Cherry
 ├── common/              # permissions (can), guards, filters (ok/fail)
@@ -82,7 +83,11 @@ src/
 - Ô tiền dùng `MoneyInput`. Sheet/dialog dùng `Sheet` (bottom sheet trên điện thoại).
 - Reset state khi mở sheet: remount bằng `key`, không setState trong useEffect (lint `react-hooks/set-state-in-effect`).
 - Trang phiếu công khai chỉ dùng DTO `getPublicInvoice` — không lộ ghi chú riêng, cờ khó khăn, SĐT, lý do sửa tay.
-- Chuyển động: Motion; luôn tôn trọng `useReducedMotion`.
+- Chuyển động: Motion; `MotionProvider` (root layout) bật `reducedMotion="user"` cho mọi component — hiệu ứng
+  riêng (confetti, đếm số) vẫn tự kiểm `useReducedMotion`. Thanh tiến độ animate `scaleX` + `origin-left`, không animate `width`.
+- Ô nhập trong `<Field>` tự gắn nhãn (id, aria-describedby, aria-invalid qua context) — không cần truyền `htmlFor`.
+- Lưới responsive: luôn có `grid-cols-1` ở cỡ nhỏ (hoặc `[&>*]:min-w-0`) — cột ngầm định co theo nội dung làm tràn ngang.
+- Đăng xuất dùng `<LogoutForm>`: xóa trang đã cache ngoại tuyến (điện thoại dùng chung giữa phụ huynh và con).
 
 ## 6. Quyết định đã chốt (10/2026)
 
@@ -105,7 +110,8 @@ src/
 - ✅ **GĐ2**: tài khoản học sinh khối 9 / phụ huynh (cấp từng em hoặc cả lớp, bắt đổi mật khẩu lần đầu),
   giao đề (ảnh/PDF, lớp/ca/từng em, hạn nộp), nộp bài nhiều trang (tự xoay + làm nét), chấm bài (khoanh lên ảnh,
   nhận xét mẫu, ghi âm), vườn cherry + huy hiệu, so với chính mình, đếm ngược thi vào 10, cổng phụ huynh.
-- ⬜ **GĐ3**: báo cáo cho phụ huynh, tổng kết năm học "Wrapped", webhook SePay/Casso (bảng `BankTransaction` đã có).
+- 🟡 **GĐ3**: ✅ báo cáo tháng cho phụ huynh (Sổ tay học sinh → "Báo cáo tháng": gom chuyên cần, bài tập, điểm;
+  cô viết thêm rồi sao chép). ⬜ tổng kết năm học "Wrapped", ⬜ webhook SePay/Casso (bảng `BankTransaction` đã có).
 - ⬜ Triển khai: cần tên miền HTTPS (PWA + link phiếu). Sao lưu tự động định kỳ (hiện có nút "Tải file sao lưu").
 
 ## 8. Quy trình Git

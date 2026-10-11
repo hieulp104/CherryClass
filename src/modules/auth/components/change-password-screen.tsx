@@ -8,7 +8,8 @@ import { Mascot } from "@/components/brand/mascot";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/feedback";
 import { Field, Input } from "@/components/ui/form";
-import { changePasswordAction, logoutAction } from "@/modules/auth/auth.actions";
+import { LogoutForm } from "@/components/layout/logout-form";
+import { changePasswordAction } from "@/modules/auth/auth.actions";
 import { givenName } from "@/lib/utils";
 
 export function ChangePasswordScreen({ name, forced, role }: { name: string; forced: boolean; role: "TEACHER" | "STUDENT" | "PARENT" }) {
@@ -50,11 +51,11 @@ export function ChangePasswordScreen({ name, forced, role }: { name: string; for
             {!pending && <KeyRound className="size-5" />} Lưu mật khẩu
           </Button>
         </form>
-        <form action={logoutAction} className="mt-3 text-center">
+        <LogoutForm className="mt-3 text-center">
           <button type="submit" className="text-sm font-semibold text-muted hover:text-foreground">
             Đăng xuất
           </button>
-        </form>
+        </LogoutForm>
       </motion.div>
     </main>
   );

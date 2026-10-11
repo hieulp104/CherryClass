@@ -609,9 +609,13 @@ function MakeupSearch({ open, onClose, onPick }: { open: boolean; onClose: () =>
         <Search className="absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-muted" />
         <input
           autoFocus
+          type="search"
+          aria-label="Tìm học sinh để thêm học bù"
+          autoComplete="off"
+          spellCheck={false}
           value={q}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="vd: nguyen van an"
+          placeholder="vd: nguyen van an…"
           className="min-h-12 w-full rounded-control border border-line-strong bg-surface pl-11 pr-3 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/15"
         />
       </div>

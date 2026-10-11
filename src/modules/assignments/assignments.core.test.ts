@@ -74,6 +74,15 @@ describe("điểm", () => {
     expect(selfComparison(null, 8).tone).toBe("none");
   });
 
+  it("so với chính mình — phụ huynh đọc thì gọi tên con, không gọi 'em'", () => {
+    expect(selfComparison(8.3, 7.5, "Bình").text).toBe("Điểm trung bình tháng này của Bình tăng 0,8 so với tháng trước 🎉");
+    for (const [a, b] of [[8.3, 7.5], [7.5, 7.55], [6, 8], [7, null], [null, 8]] as const) {
+      const text = selfComparison(a, b, "Bình").text;
+      expect(text).not.toMatch(/em/i);
+    }
+    expect(selfComparison(6, 8, "Bình").text).not.toMatch(/\d/);
+  });
+
   it("lời động viên ổn định theo bài", () => {
     expect(lowScoreCheer("abc")).toBe(lowScoreCheer("abc"));
   });

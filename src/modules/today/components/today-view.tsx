@@ -1,43 +1,62 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { useEffect, useId, useState } from "react";
+import { AnimatePresence, MotionConfig, motion, type Variants } from "motion/react";
 import {
   AlertTriangle,
   ArrowRight,
+  BookOpenCheck,
   CalendarCheck2,
+  CalendarClock,
+  CheckCircle2,
   ChevronRight,
   Clock,
   Gift,
   Hourglass,
-  MessageCircleHeart,
   PenLine,
   Send,
-  Sparkles,
+  ShieldCheck,
+  TrendingDown,
+  TrendingUp,
+  UserX,
   Users,
   Wallet,
-  X,
   type LucideIcon,
 } from "lucide-react";
 
-import { CherryIcon, Mascot } from "@/components/brand/mascot";
+import { ButtonLink } from "@/components/ui/button";
+import { Card, CardLink } from "@/components/ui/card";
+import { Chip, Notice, type ChipTone } from "@/components/ui/feedback";
 import { CountUp } from "@/components/ui/fx";
-import { EmptyState } from "@/components/ui/feedback";
-import { IconTile, SectionTitle } from "@/components/ui/page";
+import { IconTile } from "@/components/ui/page";
 import type { SessionCard } from "@/modules/classes/classes.service";
-import type { TodayData, TodoItem } from "@/modules/today/today.service";
-import { minutesUntil, vnNow } from "@/lib/dates";
+import type { AttentionGroup, AttentionKind, TodayData } from "@/modules/today/today.service";
+import { fullDate, minutesUntil, vnNow, weekdayOf, WEEKDAY_LONG } from "@/lib/dates";
 import { cn, formatVnd, formatVndShort, greetingFor } from "@/lib/utils";
 
-const TODO_META: Record<TodoItem["kind"], { icon: LucideIcon; tone: "overdue" | "primary" | "sky" | "amber" | "grape" | "leaf" }> = {
+// ─────────────── Chuyển động: một nhịp, một đường cong, không nảy ───────────────
+
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+const container: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.07, delayChildren: 0.04 } },
+};
+
+const rise: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.55, ease: EASE } },
+};
+
+const ATTENTION_META: Record<AttentionKind, { icon: LucideIcon; tone: ChipTone }> = {
   CLAIMED: { icon: Hourglass, tone: "sky" },
   OVERDUE: { icon: AlertTriangle, tone: "overdue" },
   READY: { icon: Send, tone: "primary" },
   UNMARKED: { icon: CalendarCheck2, tone: "amber" },
-  ABSENT: { icon: MessageCircleHeart, tone: "grape" },
+  GRADE: { icon: PenLine, tone: "grape" },
+  ABSENT: { icon: UserX, tone: "muted" },
   BIRTHDAY: { icon: Gift, tone: "leaf" },
-  GRADE: { icon: PenLine, tone: "primary" },
 };
 
 /** Đồng hồ VN cập nhật mỗi 30 giây (đếm ngược tới giờ vào lớp). */
@@ -50,297 +69,626 @@ function useClock(initial: string) {
   return time;
 }
 
+type Phase = "done" | "cancelled" | "live" | "upcoming" | "missed";
+
+function phaseOf(s: SessionCard, time: string): Phase {
+  if (s.status === "COMPLETED") return "done";
+  if (s.status === "CANCELLED") return "cancelled";
+  if (s.startTime <= time && time < s.endTime) return "live";
+  return time < s.startTime ? "upcoming" : "missed";
+}
+
+/** Ca nên mở ngay: đang học → sắp tới → đã qua mà chưa điểm danh. */
 function pickFocus(sessions: SessionCard[], time: string) {
-  const live = sessions.filter((s) => s.status !== "CANCELLED");
-  const current = live.find((s) => s.status === "SCHEDULED" && s.startTime <= time && time < s.endTime);
-  if (current) return { session: current, mode: "now" as const };
-  const next = live.find((s) => s.status === "SCHEDULED" && s.startTime > time);
-  if (next) return { session: next, mode: "next" as const };
-  const missed = live.find((s) => s.status === "SCHEDULED");
-  if (missed) return { session: missed, mode: "missed" as const };
+  const order: Phase[] = ["live", "upcoming", "missed"];
+  for (const p of order) {
+    const s = sessions.find((x) => phaseOf(x, time) === p);
+    if (s) return s;
+  }
   return null;
+}
+
+function formatMoney(n: number) {
+  return n >= 10_000_000 ? formatVndShort(n) : formatVnd(n);
 }
 
 export function TodayView({ data }: { data: TodayData }) {
   const time = useClock(data.now.time);
   const hour = Number(time.slice(0, 2));
   const focus = pickFocus(data.sessions, time);
-  const [hideSummary, setHideSummary] = useState(false);
-  const mood = hour >= 22 || hour < 6 ? "sleepy" : data.summary ? "celebrate" : "happy";
+  const today = data.now.dateKey;
 
   return (
-    <div>
-      {/* Lời chào */}
-      <motion.section
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex items-center gap-3 sm:gap-5"
-      >
-        <Mascot mood={mood} size={84} />
-        <div className="min-w-0">
-          <h1 className="text-h1 font-extrabold leading-tight tracking-tight sm:text-[2rem]">
-            {greetingFor(hour)}, <span className="text-primary">{data.teacherName}</span> 🍒
-          </h1>
-          <p className="mt-1 text-sm text-muted sm:text-base">{data.quote}</p>
+    <MotionConfig reducedMotion="user">
+      <motion.div variants={container} initial="hidden" animate="show">
+        {/* ─────────── Lời chào ─────────── */}
+        <motion.header variants={rise} className="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+              {WEEKDAY_LONG[weekdayOf(today)]}, {fullDate(today)}
+            </p>
+            <h1 className="mt-1 text-h1 font-extrabold tracking-tight sm:text-[2rem]">
+              {greetingFor(hour)}, <span className="text-primary">{data.teacherName}</span>
+            </h1>
+            <p className="mt-1 text-sm text-muted">{data.quote}</p>
+          </div>
+          {focus && (
+            <ButtonLink href={`/diem-danh/${focus.id}`} className="group">
+              Điểm danh {focus.classroom.name}
+              <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+            </ButtonLink>
+          )}
+        </motion.header>
+
+        {/* ─────────── Ô số liệu nhanh ─────────── */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+          <IncomeCard stats={data.stats} />
+          <StatCard
+            href="/thu-tien"
+            label="Còn cần thu"
+            icon={Clock}
+            tone="amber"
+            value={data.stats.outstanding}
+            money
+            hint={data.stats.outstandingStudents ? `${data.stats.outstandingStudents} em chưa đóng đủ` : "Không em nào còn nợ"}
+          />
+          <StatCard
+            href="/hoc-sinh"
+            label="Học sinh đang học"
+            icon={Users}
+            tone="primary"
+            value={data.stats.activeStudents}
+            hint={`${data.stats.classroomCount} lớp`}
+          />
+          <SessionsStat sessions={data.sessions} time={time} />
         </div>
-      </motion.section>
 
-      {/* Tổng kết cuối ngày */}
-      <AnimatePresence>
-        {data.summary && !hideSummary && (
-          <motion.section
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0, marginTop: 0 }}
-            className="mt-5 overflow-hidden"
-          >
-            <div className="bg-sunset relative overflow-hidden rounded-card p-5 text-white shadow-pop">
-              <div className="sparkle-overlay absolute inset-0" />
-              <button
-                type="button"
-                onClick={() => setHideSummary(true)}
-                aria-label="Ẩn tổng kết"
-                className="absolute right-3 top-3 grid size-8 place-items-center rounded-full bg-white/20"
-              >
-                <X className="size-4" />
-              </button>
-              <p className="relative flex items-center gap-2 text-sm font-semibold text-white/85">
-                <Sparkles className="size-4" /> Tổng kết hôm nay
-              </p>
-              <p className="relative mt-2 text-lg font-bold leading-snug sm:text-xl">
-                Hôm nay cô dạy {data.summary.sessions} ca, {data.summary.students} em
-                {data.summary.received > 0 ? `, nhận ${formatVnd(data.summary.received)}` : ""}.
-                {data.summary.needReminder > 0
-                  ? ` Có ${data.summary.needReminder} em cần nhắc học phí.`
-                  : " Học phí đâu vào đấy hết rồi!"}{" "}
-                Cô nghỉ ngơi nhé! 💗
-              </p>
-            </div>
-          </motion.section>
-        )}
-      </AnimatePresence>
+        {/* ─────────── Lịch hôm nay · Việc cần chú ý ─────────── */}
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <ScheduleCard sessions={data.sessions} time={time} summary={data.summary} />
+          <AttentionCard groups={data.attention} />
+        </div>
 
-      {/* Buổi học sắp tới */}
-      <section className="mt-5">
-        {focus ? (
-          <NextSessionCard session={focus.session} mode={focus.mode} time={time} />
-        ) : data.sessions.length > 0 ? (
-          <div className="bg-leaf-gradient relative overflow-hidden rounded-card p-5 text-white shadow-pop">
-            <div className="sparkle-overlay absolute inset-0" />
-            <p className="relative text-lg font-bold">Xong hết các ca hôm nay rồi! 🎉</p>
-            <p className="relative text-white/85">Điểm danh đã chốt, học phí đã tự đếm. Cô giỏi quá!</p>
-          </div>
-        ) : (
-          <div className="flex items-center gap-4 rounded-card border border-dashed border-line-strong bg-surface/70 p-5">
-            <Mascot mood="sleepy" size={64} />
-            <div>
-              <p className="font-bold">Hôm nay không có lịch dạy</p>
-              <p className="text-sm text-muted">Một ngày để nghỉ ngơi — hoặc soạn bài thong thả ạ.</p>
-            </div>
-          </div>
-        )}
-        {data.sessions.length > 1 && <SessionStrip sessions={data.sessions} time={time} />}
-      </section>
-
-      {/* Ba thẻ số liệu */}
-      <section className="no-scrollbar -mx-4 mt-5 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0">
-        <StatTile
-          index={0}
-          href="/thong-ke"
-          icon={<Wallet className="size-5" />}
-          tone="leaf"
-          label="Thu tháng này"
-          value={data.stats.income}
-          money
-          detail={`${data.stats.incomeCount} lượt đóng`}
-        />
-        <StatTile
-          index={1}
-          href="/thu-tien"
-          icon={<Clock className="size-5" />}
-          tone="amber"
-          label="Còn cần thu"
-          value={data.stats.outstanding}
-          money
-          detail={`${data.stats.outstandingStudents} em`}
-        />
-        <StatTile
-          index={2}
-          href="/hoc-sinh"
-          icon={<Users className="size-5" />}
-          tone="primary"
-          label="Học sinh đang học"
-          value={data.stats.activeStudents}
-          detail="em"
-        />
-      </section>
-
-      {/* Việc cần làm */}
-      <SectionTitle
-        action={data.todos.length > 0 ? <span className="text-sm font-semibold text-muted">{data.todos.length} việc</span> : null}
-      >
-        Việc cần làm
-      </SectionTitle>
-      {data.todos.length === 0 ? (
-        <EmptyState
-          mood="sleepy"
-          title="Hôm nay không có gì gấp"
-          description="Cô thảnh thơi nhé! Có việc gì cần, em sẽ nhắc ngay ở đây ạ."
-        />
-      ) : (
-        <ul className="space-y-2.5">
-          {data.todos.map((t, i) => {
-            const meta = TODO_META[t.kind];
-            return (
-              <motion.li
-                key={t.key}
-                initial={{ opacity: 0, x: -12 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ type: "spring", stiffness: 300, damping: 26, delay: 0.1 + i * 0.05 }}
-              >
-                <Link
-                  href={t.href}
-                  className="group flex items-center gap-3 rounded-card border border-line bg-surface p-3.5 shadow-card transition hover:-translate-y-0.5 hover:shadow-pop active:scale-[0.99]"
-                >
-                  <IconTile icon={<meta.icon className="size-5" />} tone={meta.tone} />
-                  <div className="min-w-0 flex-1">
-                    <p className="font-bold leading-snug">{t.title}</p>
-                    <p className="truncate text-sm text-muted">{t.detail}</p>
-                  </div>
-                  <ChevronRight className="size-5 shrink-0 text-muted transition group-hover:translate-x-0.5" />
-                </Link>
-              </motion.li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function NextSessionCard({ session, mode, time }: { session: SessionCard; mode: "now" | "next" | "missed"; time: string }) {
-  const mins = minutesUntil(session.startTime, time);
-  const countdown =
-    mode === "now"
-      ? "Đang trong giờ học"
-      : mode === "missed"
-        ? "Buổi này chưa điểm danh"
-        : mins >= 60
-          ? `còn ${Math.floor(mins / 60)} giờ ${mins % 60 ? `${mins % 60} phút` : ""}`
-          : `còn ${mins} phút`;
-  return (
-    <Link href={`/diem-danh/${session.id}`} className="block">
-      <motion.div
-        whileTap={{ scale: 0.98 }}
-        className="bg-hero relative overflow-hidden rounded-card p-5 text-white shadow-pop sm:p-6"
-      >
-        <div className="sparkle-overlay absolute inset-0" />
-        <motion.div
-          className="absolute -right-4 -top-2 opacity-25"
-          animate={{ rotate: [0, 8, 0], y: [0, -6, 0] }}
-          transition={{ duration: 5, repeat: Infinity }}
-        >
-          <CherryIcon size={130} />
-        </motion.div>
-        <div className="relative">
-          <p className="text-sm font-semibold text-white/80">
-            {mode === "now" ? "Ca đang học" : mode === "missed" ? "Ca hôm nay" : "Ca sắp tới"}
-          </p>
-          <p className="mt-1 text-2xl font-extrabold sm:text-3xl">
-            {session.classroom.name} · {session.shiftName}
-          </p>
-          <p className="mt-1 text-white/85">
-            {session.startTime}–{session.endTime}
-            {session.room ? ` · ${session.room}` : ""} · {session.studentCount} em
-          </p>
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <motion.span
-              key={countdown}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-full bg-white/20 px-3 py-1.5 text-sm font-bold backdrop-blur tabular"
-            >
-              ⏱ {countdown}
-            </motion.span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 font-bold text-[#9F1239] shadow-md">
-              Vào điểm danh <ArrowRight className="size-4" />
-            </span>
-          </div>
+        {/* ─────────── Phiếu thu · Sĩ số ─────────── */}
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <BillingCard billing={data.billing} />
+          <ClassroomCard classrooms={data.classrooms} />
         </div>
       </motion.div>
-    </Link>
+    </MotionConfig>
   );
 }
 
-function SessionStrip({ sessions, time }: { sessions: SessionCard[]; time: string }) {
-  return (
-    <div className="no-scrollbar -mx-4 mt-3 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-      {sessions.map((s) => {
-        const done = s.status === "COMPLETED";
-        const cancelled = s.status === "CANCELLED";
-        const live = !done && !cancelled && s.startTime <= time && time < s.endTime;
-        return (
-          <Link
-            key={s.id}
-            href={`/diem-danh/${s.id}`}
-            className={cn(
-              "flex shrink-0 items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold transition active:scale-95",
-              done && "border-leaf/30 bg-leaf-soft text-leaf",
-              cancelled && "border-line bg-surface-subtle text-muted line-through",
-              live && "border-primary bg-primary-soft text-primary-deep",
-              !done && !cancelled && !live && "border-line bg-surface",
-            )}
-          >
-            <span className="tabular">{s.startTime}</span>
-            <span>{s.classroom.name}</span>
-            {done && <span>✓</span>}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
+// ─────────────── Ô số liệu ───────────────
 
-function StatTile({
-  index,
+function StatCard({
   href,
-  icon,
-  tone,
   label,
+  icon: Icon,
+  tone,
   value,
   money,
-  detail,
+  hint,
+  valueClass,
+  children,
 }: {
-  index: number;
   href: string;
-  icon: React.ReactNode;
-  tone: "leaf" | "amber" | "primary";
   label: string;
+  icon: LucideIcon;
+  tone: "primary" | "leaf" | "amber" | "sky";
   value: number;
   money?: boolean;
-  detail: string;
+  hint: React.ReactNode;
+  valueClass?: string;
+  children?: React.ReactNode;
 }) {
-  const color = { leaf: "text-leaf", amber: "text-amber", primary: "text-primary" }[tone];
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 260, damping: 22, delay: 0.15 + index * 0.07 }}
-      className="w-[78%] shrink-0 snap-start sm:w-auto"
+    <motion.div variants={rise} className="min-w-0">
+      <CardLink href={href} className="group relative h-full overflow-hidden p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-2 sm:gap-3">
+          <p className="text-sm font-medium text-muted">{label}</p>
+          <IconTile icon={<Icon className="size-[18px]" />} tone={tone} className="size-8 shrink-0 rounded-[10px] sm:size-9 sm:rounded-[12px]" />
+        </div>
+        <p
+          className={cn(
+            "mt-3 whitespace-nowrap text-[clamp(1.2rem,5.4vw,1.75rem)] font-extrabold leading-none tracking-tight text-foreground",
+            valueClass,
+          )}
+        >
+          <CountUp value={value} format={money ? formatMoney : undefined} />
+        </p>
+        <div className="mt-2 text-xs text-muted">{hint}</div>
+        {children}
+      </CardLink>
+    </motion.div>
+  );
+}
+
+function IncomeCard({ stats }: { stats: TodayData["stats"] }) {
+  const prevLabel = stats.trend.at(-2)?.label ?? "";
+  const up = stats.income >= stats.incomePrev;
+  const pct = stats.incomePrev > 0 ? Math.round(((stats.income - stats.incomePrev) / stats.incomePrev) * 100) : null;
+  return (
+    <StatCard
+      href="/thong-ke"
+      label="Thu tháng này"
+      icon={Wallet}
+      tone="leaf"
+      value={stats.income}
+      money
+      valueClass="text-leaf"
+      hint={
+        <span className="flex items-center gap-1.5">
+          {pct !== null ? (
+            <>
+              <span className={cn("inline-flex items-center gap-0.5 font-semibold", up ? "text-leaf" : "text-overdue")}>
+                {up ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
+                {up ? "+" : ""}
+                {pct}%
+              </span>
+              <span>
+                so với <span className="hidden sm:inline">cùng kỳ </span>
+                {prevLabel}
+              </span>
+            </>
+          ) : (
+            <span>{stats.incomeCount} lượt đóng</span>
+          )}
+        </span>
+      }
+    >
+      <Sparkline values={stats.trend.map((t) => t.amount)} className="mt-3 text-leaf" />
+    </StatCard>
+  );
+}
+
+/** Đường xu hướng 6 tháng — tự vẽ một lần khi hiện ra. */
+function Sparkline({ values, className }: { values: number[]; className?: string }) {
+  const id = useId();
+  if (values.length < 2 || values.every((v) => v === 0)) return <div className={cn("h-8", className)} />;
+  const w = 120;
+  const h = 32;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const span = max - min || 1;
+  const pts = values.map((v, i) => [(i / (values.length - 1)) * w, h - 3 - ((v - min) / span) * (h - 6)] as const);
+  const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+  const area = `${line} L${w},${h} L0,${h} Z`;
+  const [lx, ly] = pts.at(-1)!;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className={cn("h-8 w-full overflow-visible", className)} aria-hidden>
+      <defs>
+        <linearGradient id={id} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" stopOpacity={0.22} />
+          <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <motion.path
+        d={area}
+        fill={`url(#${id})`}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.8, delay: 0.7, ease: EASE }}
+      />
+      <motion.path
+        d={line}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.75}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+        initial={{ pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: 1.1, delay: 0.3, ease: EASE }}
+      />
+      <motion.circle
+        cx={lx}
+        cy={ly}
+        r={2.5}
+        fill="currentColor"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.3, delay: 1.3 }}
+      />
+    </svg>
+  );
+}
+
+function SessionsStat({ sessions, time }: { sessions: SessionCard[]; time: string }) {
+  const live = sessions.filter((s) => s.status !== "CANCELLED");
+  const done = live.filter((s) => s.status === "COMPLETED").length;
+  const current = live.find((s) => phaseOf(s, time) === "live");
+  const next = live.find((s) => phaseOf(s, time) === "upcoming");
+  const hint = live.length === 0
+    ? "Hôm nay không có lịch dạy"
+    : current
+      ? `Đang học: ${current.classroom.name}`
+      : next
+        ? `Ca tiếp: ${next.startTime} · ${next.classroom.name}`
+        : done === live.length
+          ? "Đã xong mọi ca"
+          : "Còn ca chưa điểm danh";
+  return (
+    <StatCard href="/diem-danh" label="Ca hôm nay" icon={CalendarClock} tone="sky" value={live.length} hint={hint}>
+      {live.length > 0 && (
+        <div className="mt-3 flex gap-1" aria-label={`${done}/${live.length} ca đã xong`}>
+          {live.map((s, i) => (
+            <span key={s.id} className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+              <motion.span
+                className="block h-full origin-left rounded-full bg-sky"
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: s.status === "COMPLETED" ? 1 : 0 }}
+                transition={{ duration: 0.6, delay: 0.5 + i * 0.08, ease: EASE }}
+              />
+            </span>
+          ))}
+        </div>
+      )}
+    </StatCard>
+  );
+}
+
+// ─────────────── Lịch dạy hôm nay ───────────────
+
+const PHASE_CHIP: Record<Phase, { label: string; tone: ChipTone; icon: LucideIcon }> = {
+  done: { label: "Đã xong", tone: "leaf", icon: CheckCircle2 },
+  cancelled: { label: "Đã hủy", tone: "muted", icon: Clock },
+  live: { label: "Đang học", tone: "sky", icon: BookOpenCheck },
+  upcoming: { label: "Sắp tới", tone: "muted", icon: Clock },
+  missed: { label: "Chưa điểm danh", tone: "amber", icon: CalendarCheck2 },
+};
+
+function ScheduleCard({
+  sessions,
+  time,
+  summary,
+}: {
+  sessions: SessionCard[];
+  time: string;
+  summary: TodayData["summary"];
+}) {
+  const students = sessions.filter((s) => s.status !== "CANCELLED").reduce((n, s) => n + s.studentCount, 0);
+  return (
+    <motion.div variants={rise} className="min-w-0">
+      <Card className="h-full p-5">
+        <h2 className="text-h2 font-bold">Lịch dạy hôm nay</h2>
+        <p className="mt-1 text-sm text-muted">
+          {sessions.length ? `${sessions.length} ca · ${students} em` : "Không có ca nào"}
+        </p>
+
+        {sessions.length === 0 ? (
+          <Card variant="subtle" className="mt-4 flex h-40 flex-col items-center justify-center gap-2 text-sm text-muted">
+            <IconTile icon={<CalendarClock className="size-5" />} tone="sky" className="size-10" />
+            Một ngày để nghỉ ngơi — hoặc soạn bài thong thả.
+          </Card>
+        ) : (
+          <ol className="relative mt-4">
+            {/* Trục thời gian */}
+            <span className="absolute bottom-3 left-[3.6rem] top-3 w-px bg-line" aria-hidden />
+            {sessions.map((s, i) => (
+              <ScheduleRow key={s.id} session={s} time={time} index={i} />
+            ))}
+          </ol>
+        )}
+
+        {summary && (
+          <Notice tone="leaf" icon={ShieldCheck} className="mt-4">
+            Đã dạy {summary.sessions} ca, {summary.students} em
+            {summary.received > 0 ? ` · nhận ${formatVnd(summary.received)} hôm nay` : ""}.
+            {summary.needReminder > 0 ? ` ${summary.needReminder} phiếu cần nhắc.` : " Học phí đâu vào đấy."}
+          </Notice>
+        )}
+      </Card>
+    </motion.div>
+  );
+}
+
+function ScheduleRow({ session: s, time, index }: { session: SessionCard; time: string; index: number }) {
+  const phase = phaseOf(s, time);
+  const chip = PHASE_CHIP[phase];
+  const total = -minutesUntil(s.endTime, s.startTime);
+  const elapsed = -minutesUntil(s.startTime, time);
+  const progress = phase === "live" && total > 0 ? Math.min(1, elapsed / total) : 0;
+  const mins = minutesUntil(s.startTime, time);
+  const countdown = phase === "upcoming" ? (mins >= 60 ? `còn ${Math.floor(mins / 60)}g${mins % 60 ? ` ${mins % 60}p` : ""}` : `còn ${mins} phút`) : null;
+
+  return (
+    <motion.li
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.45, delay: 0.25 + index * 0.06, ease: EASE }}
     >
       <Link
-        href={href}
-        className="block rounded-card border border-line bg-surface p-5 shadow-card transition hover:-translate-y-0.5 hover:shadow-pop active:scale-[0.98]"
+        href={`/diem-danh/${s.id}`}
+        className={cn(
+          "group relative flex items-center gap-3 rounded-control py-2.5 pr-2 transition-colors hover:bg-surface-subtle",
+          phase === "cancelled" && "opacity-60",
+        )}
       >
-        <div className="flex items-center gap-3">
-          <IconTile icon={icon} tone={tone} />
-          <p className="text-sm font-semibold text-muted">{label}</p>
+        <span className="w-11 shrink-0 text-right text-sm font-semibold tabular-nums">{s.startTime}</span>
+        {/* Mốc trên trục */}
+        <span className="relative z-10 grid size-3 shrink-0 place-items-center">
+          {phase === "live" && <span className="absolute inset-0 rounded-full bg-sky/40 motion-safe:animate-ping" />}
+          <span
+            className={cn(
+              "size-2.5 rounded-full ring-4 ring-surface",
+              phase === "done" && "bg-leaf",
+              phase === "live" && "bg-sky",
+              phase === "missed" && "bg-amber",
+              (phase === "upcoming" || phase === "cancelled") && "bg-line-strong",
+            )}
+          />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className={cn("truncate text-sm font-semibold", phase === "cancelled" && "line-through")}>
+            {s.classroom.name} · {s.shiftName}
+          </p>
+          <p className="truncate text-xs text-muted">
+            {s.startTime}–{s.endTime}
+            {s.room ? ` · ${s.room}` : ""} · {s.studentCount} em
+            {phase === "done" ? ` · có mặt ${s.presentCount}` : ""}
+          </p>
+          {/* Điện thoại: trạng thái xuống dòng để tên lớp không bị cắt. */}
+          <Chip tone={chip.tone} icon={chip.icon} className="mt-1.5 sm:hidden">
+            {countdown ?? chip.label}
+          </Chip>
+          {phase === "live" && (
+            <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-sky-soft">
+              <motion.span
+                className="block h-full origin-left rounded-full bg-sky"
+                initial={{ scaleX: 0 }}
+                animate={{ scaleX: progress }}
+                transition={{ duration: 0.9, delay: 0.5, ease: EASE }}
+              />
+            </span>
+          )}
         </div>
-        <p className={cn("mt-3 text-[2rem] font-extrabold leading-none tracking-tight", color)}>
-          <CountUp value={value} format={money ? (n) => (n >= 10_000_000 ? formatVndShort(n) : formatVnd(n)) : undefined} />
-        </p>
-        <p className="mt-1.5 text-sm text-muted">{detail}</p>
+        <Chip tone={chip.tone} icon={chip.icon} className="hidden shrink-0 sm:inline-flex">
+          {countdown ?? chip.label}
+        </Chip>
+        <ChevronRight className="size-4 shrink-0 text-muted opacity-0 transition-[opacity,transform] duration-200 group-hover:translate-x-0.5 group-hover:opacity-100" />
       </Link>
+    </motion.li>
+  );
+}
+
+// ─────────────── Việc cần chú ý ───────────────
+
+const ICON_TONE: Record<ChipTone, string> = {
+  leaf: "bg-leaf-soft text-leaf",
+  amber: "bg-amber-soft text-amber",
+  overdue: "bg-overdue-soft text-overdue",
+  primary: "bg-primary-soft text-primary",
+  sky: "bg-sky-soft text-sky",
+  grape: "bg-grape-soft text-grape",
+  muted: "bg-surface-subtle text-muted",
+};
+
+/** Mỗi nhóm việc một dòng; bấm mới mở chi tiết — trang tổng quan chỉ cần nhìn lướt. */
+function AttentionCard({ groups }: { groups: AttentionGroup[] }) {
+  const [open, setOpen] = useState<AttentionKind | null>(null);
+  return (
+    <motion.div variants={rise} className="min-w-0">
+      <Card className="h-full p-5">
+        <h2 className="flex items-center gap-2 text-h2 font-bold">
+          Việc cần chú ý
+          {groups.length > 0 && <Chip tone="overdue">{groups.length}</Chip>}
+        </h2>
+
+        {groups.length === 0 ? (
+          <Card variant="subtle" className="mt-4 flex h-40 flex-col items-center justify-center gap-2 text-sm text-muted">
+            <IconTile icon={<ShieldCheck className="size-5" />} tone="leaf" className="size-10" />
+            Không có việc nào cần chú ý. Mọi thứ đang trong hạn.
+          </Card>
+        ) : (
+          <ul className="mt-3 divide-y divide-line">
+            {groups.map((g, gi) => (
+              <AttentionRow
+                key={g.kind}
+                group={g}
+                index={gi}
+                open={open === g.kind}
+                onToggle={() => setOpen(open === g.kind ? null : g.kind)}
+              />
+            ))}
+          </ul>
+        )}
+      </Card>
+    </motion.div>
+  );
+}
+
+function AttentionRow({
+  group: g,
+  index,
+  open,
+  onToggle,
+}: {
+  group: AttentionGroup;
+  index: number;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const meta = ATTENTION_META[g.kind];
+  const preview = g.items
+    .slice(0, 2)
+    .map((it) => it.label)
+    .join(", ");
+  const itemTotal = g.itemTotal ?? g.total;
+  const more = itemTotal - Math.min(2, g.items.length);
+  return (
+    <motion.li
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay: 0.3 + index * 0.05, ease: EASE }}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="group -mx-2 flex w-[calc(100%+1rem)] items-center gap-3 rounded-control px-2 py-2.5 text-left transition-colors hover:bg-surface-subtle"
+      >
+        <span className={cn("grid size-8 shrink-0 place-items-center rounded-[10px]", ICON_TONE[meta.tone])}>
+          <meta.icon className="size-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold">{g.label}</span>
+          {!open && (
+            <span className="block truncate text-xs text-muted">
+              {preview}
+              {more > 0 ? ` và ${more} nữa` : ""}
+            </span>
+          )}
+        </span>
+        <span className="shrink-0 text-sm font-bold tabular-nums">{g.total}</span>
+        <ChevronRight
+          className={cn("size-4 shrink-0 text-muted transition-transform duration-300", open && "rotate-90")}
+        />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: EASE }}
+            className="overflow-hidden"
+          >
+            <ul className="space-y-1 pb-3 pl-11">
+              {g.items.map((it) => (
+                <li key={it.key}>
+                  <Link
+                    href={it.href}
+                    className="group flex items-center justify-between gap-3 rounded-control px-2 py-1.5 text-sm transition-colors hover:bg-surface-subtle"
+                  >
+                    <span className="min-w-0 truncate">
+                      {it.label}
+                      {it.sub && <span className="text-muted"> · {it.sub}</span>}
+                    </span>
+                    <span className="shrink-0 text-xs font-semibold text-muted tabular-nums">{it.badge}</span>
+                  </Link>
+                </li>
+              ))}
+              <li>
+                <Link
+                  href={g.href}
+                  className="inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-primary hover:underline"
+                >
+                  Mở {itemTotal > g.items.length ? `tất cả ${itemTotal}` : "danh sách"} <ArrowRight className="size-3.5" />
+                </Link>
+              </li>
+            </ul>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.li>
+  );
+}
+
+// ─────────────── Thanh phân bố (phiếu thu, sĩ số) ───────────────
+
+function Bar({ value, max, index, color, className }: { value: number; max: number; index: number; color?: string; className?: string }) {
+  return (
+    <span className="block h-2 overflow-hidden rounded-full bg-surface-subtle">
+      <motion.span
+        className={cn("block h-full origin-left rounded-full", className)}
+        style={color ? { backgroundColor: color } : undefined}
+        initial={{ scaleX: 0 }}
+        whileInView={{ scaleX: max > 0 ? value / max : 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.9, delay: 0.15 + index * 0.06, ease: EASE }}
+      />
+    </span>
+  );
+}
+
+const BILLING_TONE: Record<TodayData["billing"][number]["tab"], string> = {
+  READY: "bg-primary",
+  CLAIMED: "bg-sky",
+  WAITING: "bg-amber",
+  OVERDUE: "bg-overdue",
+};
+
+function BillingCard({ billing }: { billing: TodayData["billing"] }) {
+  const open = billing.reduce((n, b) => n + b.count, 0);
+  const max = Math.max(1, ...billing.map((b) => b.count));
+  return (
+    <motion.div variants={rise} className="min-w-0">
+      <Card className="h-full p-5">
+        <h2 className="text-h2 font-bold">Phiếu thu theo trạng thái</h2>
+        <p className="mt-1 text-sm text-muted">{open} phiếu đang mở</p>
+        {open === 0 ? (
+          <Card variant="subtle" className="mt-4 flex h-32 items-center justify-center text-sm text-muted">
+            Không có phiếu nào đang chờ
+          </Card>
+        ) : (
+          <ol className="mt-4 space-y-3">
+            {billing.map((b, i) => (
+              <li key={b.tab}>
+                <Link
+                  href={`/thu-tien?tab=${b.tab}`}
+                  className="group -mx-2 block rounded-control px-2 py-1 transition-colors hover:bg-surface-subtle"
+                  aria-label={`${b.count} phiếu ${b.label}`}
+                >
+                  <span className="mb-1.5 flex items-baseline justify-between gap-2 text-sm">
+                    <span>{b.label}</span>
+                    <span className="font-semibold tabular-nums">
+                      <CountUp value={b.count} duration={0.9} />
+                    </span>
+                  </span>
+                  <Bar value={b.count} max={max} index={i} className={BILLING_TONE[b.tab]} />
+                </Link>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+    </motion.div>
+  );
+}
+
+function ClassroomCard({ classrooms }: { classrooms: TodayData["classrooms"] }) {
+  const max = Math.max(1, ...classrooms.map((c) => c.count));
+  const total = classrooms.reduce((n, c) => n + c.count, 0);
+  return (
+    <motion.div variants={rise} className="min-w-0">
+      <Card className="h-full p-5">
+        <h2 className="text-h2 font-bold">Sĩ số theo lớp</h2>
+        <p className="mt-1 text-sm text-muted">
+          {total} em · {classrooms.length} lớp
+        </p>
+        {classrooms.length === 0 ? (
+          <Card variant="subtle" className="mt-4 flex h-32 items-center justify-center text-sm text-muted">
+            Chưa có lớp nào
+          </Card>
+        ) : (
+          <ol className="mt-4 space-y-3">
+            {classrooms.map((c, i) => (
+              <li key={c.id}>
+                <Link
+                  href={`/hoc-sinh?lop=${c.id}`}
+                  className="group -mx-2 block rounded-control px-2 py-1 transition-colors hover:bg-surface-subtle"
+                  aria-label={`${c.count} học sinh lớp ${c.name}`}
+                >
+                  <span className="mb-1.5 flex items-baseline justify-between gap-2 text-sm">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
+                      <span className="truncate">{c.name}</span>
+                      <span className="text-xs text-muted">khối {c.grade}</span>
+                    </span>
+                    <span className="font-semibold tabular-nums">
+                      <CountUp value={c.count} duration={0.9} />
+                    </span>
+                  </span>
+                  <Bar value={c.count} max={max} index={i} color={c.color} />
+                </Link>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
     </motion.div>
   );
 }

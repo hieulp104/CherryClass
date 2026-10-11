@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 
@@ -9,11 +9,13 @@ import { Mascot } from "@/components/brand/mascot";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
 import { loginAction, type LoginState } from "@/modules/auth/auth.actions";
-
+import { clearPageCache } from "@/lib/page-cache";
 
 export function LoginScreen() {
   const [state, action, pending] = useActionState<LoginState, FormData>(loginAction, undefined);
   const [show, setShow] = useState(false);
+  // Tới màn đăng nhập = phiên trước đã kết thúc: bỏ các trang của người trước còn cache ngoại tuyến.
+  useEffect(clearPageCache, []);
 
   return (
     <main className="relative grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">

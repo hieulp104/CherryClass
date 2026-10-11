@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Chip, EmptyState } from "@/components/ui/feedback";
 import { CountUp } from "@/components/ui/fx";
 import { SectionTitle } from "@/components/ui/page";
-import { formatScore, friendlyReminder } from "@/modules/assignments/assignments.core";
+import { formatScore, friendlyReminder, selfComparison } from "@/modules/assignments/assignments.core";
 import { SUBMISSION_STATE_META } from "@/modules/assignments/components/assignment-detail";
 import { portalHref, type FrameProps } from "@/modules/portal/components/portal-frame";
 import type { PortalHome } from "@/modules/portal/portal.service";
@@ -129,7 +129,13 @@ export function PortalHomeView({
             {g.next && (
               <>
                 <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-subtle">
-                  <motion.div className="h-full rounded-full bg-primary" initial={{ width: 0 }} animate={{ width: `${g.progress * 100}%` }} transition={{ duration: 1 }} />
+                  <motion.div
+                    className="h-full origin-left rounded-full bg-primary"
+                    style={{ width: `${g.progress * 100}%` }}
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: 1 }}
+                    transition={{ duration: 1 }}
+                  />
                 </div>
                 <p className="mt-1 text-caption text-muted">
                   Còn {g.next.at - g.fruits} quả nữa mở huy hiệu {g.next.emoji} {g.next.name}
@@ -143,7 +149,11 @@ export function PortalHomeView({
             <p className="flex items-center gap-1.5 text-sm font-semibold text-muted">
               <TrendingUp className="size-4 text-sky" /> {isParent ? `Điểm của ${child}` : "So với chính em"}
             </p>
-            <p className="mt-2 font-semibold leading-snug">{data.progress.comparison.text}</p>
+            <p className="mt-2 font-semibold leading-snug">
+              {isParent
+                ? selfComparison(data.progress.thisAvg, data.progress.lastAvg, child).text
+                : data.progress.comparison.text}
+            </p>
           </Card>
         </Link>
       </div>
