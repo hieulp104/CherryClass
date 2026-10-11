@@ -113,9 +113,9 @@ export function TodayView({ data }: { data: TodayData }) {
             <p className="mt-1 text-sm text-muted">{data.quote}</p>
           </div>
           {focus && (
-            <ButtonLink href={`/diem-danh/${focus.id}`} className="group">
+            <ButtonLink href={`/diem-danh/${focus.id}`} variant="glow" className="px-6">
               Điểm danh {focus.classroom.name}
-              <ArrowRight className="size-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+              <i className="btn-ring" aria-hidden />
             </ButtonLink>
           )}
         </motion.header>

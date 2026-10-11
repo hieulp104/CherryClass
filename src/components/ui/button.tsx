@@ -21,6 +21,7 @@ export const buttonVariants = cva(
         danger: "border border-overdue/30 bg-overdue-soft text-overdue hover:brightness-[0.97]",
         white: "bg-white text-[#9F1239] shadow-md hover:bg-white/90",
         glass: "bg-white/20 text-white backdrop-blur hover:bg-white/30",
+        glow: "btn-glow rounded-full transition-[filter,box-shadow]",
       },
       size: {
         sm: "min-h-9 px-3 text-sm",

@@ -1,34 +1,32 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 
 import { useStoredValue } from "@/lib/use-external";
 import { cn } from "@/lib/utils";
 
-type Mode = "system" | "light" | "dark";
-const NEXT: Record<Mode, Mode> = { system: "light", light: "dark", dark: "system" };
-const LABEL: Record<Mode, string> = { system: "Theo máy", light: "Sáng", dark: "Tối" };
+type Mode = "light" | "dark";
+const LABEL: Record<Mode, string> = { light: "Sáng", dark: "Tối" };
 const EVENT = "tc-theme-changed";
 
+/** Giao diện đang hiển thị: chọn tay nếu có, chưa chọn thì theo máy (CSS tự theo, ở đây chỉ để biết icon). */
 function readMode(): Mode {
   try {
     const t = localStorage.getItem("tc-theme");
-    return t === "light" || t === "dark" ? t : "system";
+    if (t === "light" || t === "dark") return t;
   } catch {
-    return "system";
+    // trình duyệt chặn localStorage
   }
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 export function useThemeMode() {
-  const mode = useStoredValue<Mode>(EVENT, readMode, "system");
+  const mode = useStoredValue<Mode>(EVENT, readMode, "light");
   const apply = (m: Mode) => {
-    const root = document.documentElement;
-    if (m === "system") delete root.dataset.theme;
-    else root.dataset.theme = m;
+    document.documentElement.dataset.theme = m;
     try {
-      if (m === "system") localStorage.removeItem("tc-theme");
-      else localStorage.setItem("tc-theme", m);
+      localStorage.setItem("tc-theme", m);
     } catch {
       // trình duyệt chặn localStorage — vẫn đổi được trong phiên này
     }
@@ -36,19 +34,27 @@ export function useThemeMode() {
     (window as { __tcThemeColor?: (m: Mode) => void }).__tcThemeColor?.(m);
     window.dispatchEvent(new Event(EVENT));
   };
-  return { mode, cycle: () => apply(NEXT[mode]) };
+  return { mode, toggle: () => apply(mode === "dark" ? "light" : "dark") };
 }
 
+/**
+ * Đổi Sáng ⇄ Tối. Dạng icon (thanh trên): hiện cái SẼ chuyển sang — đang sáng thì mặt trăng.
+ * Dạng có chữ (trong menu): hiện giao diện đang dùng.
+ */
 export function ThemeToggle({ withLabel = false, className }: { withLabel?: boolean; className?: string }) {
-  const { mode, cycle } = useThemeMode();
-  const Icon = mode === "dark" ? Moon : mode === "light" ? Sun : Monitor;
+  const { mode, toggle } = useThemeMode();
+  const next: Mode = mode === "dark" ? "light" : "dark";
+  const shown = withLabel ? mode : next;
+  const Icon = shown === "dark" ? Moon : Sun;
   return (
     <button
       type="button"
-      onClick={cycle}
-      aria-label={`Giao diện: ${LABEL[mode]}`}
+      onClick={toggle}
+      aria-label={`Chuyển sang giao diện ${LABEL[next].toLowerCase()}`}
+      title={`Giao diện ${LABEL[next].toLowerCase()}`}
       className={cn(
-        "inline-flex items-center gap-2 rounded-full bg-surface-subtle px-3 py-2 text-sm font-semibold text-muted transition hover:text-foreground active:scale-95",
+        "inline-flex items-center gap-2 rounded-full text-sm font-semibold text-muted transition hover:bg-surface-subtle hover:text-foreground active:scale-95",
+        withLabel ? "bg-surface-subtle px-3 py-2" : "size-10 justify-center",
         className,
       )}
     >
@@ -60,7 +66,7 @@ export function ThemeToggle({ withLabel = false, className }: { withLabel?: bool
           exit={{ rotate: 90, scale: 0.5, opacity: 0 }}
           transition={{ duration: 0.2 }}
         >
-          <Icon className="size-4" />
+          <Icon className="size-[18px]" />
         </motion.span>
       </AnimatePresence>
       {withLabel && <span>{LABEL[mode]}</span>}

@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { Eye, EyeOff, LogIn } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 
 import { LoginScene } from "@/components/brand/login-scene";
 import { Mascot } from "@/components/brand/mascot";
@@ -83,9 +83,9 @@ export function LoginScreen() {
                   {state.error}
                 </motion.p>
               )}
-              <Button type="submit" size="lg" block loading={pending}>
-                {!pending && <LogIn className="size-5" />}
+              <Button type="submit" variant="glow" size="lg" block loading={pending}>
                 Đăng nhập
+                {!pending && <i className="btn-ring" aria-hidden />}
               </Button>
             </form>
           </div>

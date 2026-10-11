@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   BarChart3,
   BookOpenCheck,
   Bell,
+  ChevronDown,
   Home,
+  KeyRound,
   LogOut,
   Menu,
   Search,
@@ -105,46 +107,31 @@ export function AppShell({
         </button>
         <Link
           href="/diem-danh"
-          className="bg-hero mt-4 flex items-center gap-3 rounded-card px-4 py-3.5 font-bold text-white shadow-fab transition active:scale-[0.98]"
+          className="btn-glow mt-4 flex items-center gap-3 rounded-full py-3 pl-3 pr-5 font-bold active:scale-[0.98]"
         >
           <CherryIcon size={26} />
           Điểm danh
+          <i className="btn-ring ml-auto" aria-hidden />
         </Link>
         <nav aria-label="Điều hướng chính" className="mt-5 flex flex-col gap-1">
           {[...NAV, ...MORE].map((item) => (
             <SideLink key={item.href} item={item} active={isActive(pathname, item.href)} />
           ))}
         </nav>
-        <div className="mt-auto space-y-3">
-          <div className="flex items-center gap-2">
-            <ThemeToggle withLabel />
-            <button
-              type="button"
-              onClick={() => setBellOpen(true)}
-              className="relative grid size-10 place-items-center rounded-full bg-surface-subtle text-muted hover:text-foreground"
-              aria-label={bellLabel}
-            >
-              <Bell className="size-4" />
-              {unread > 0 && <Dot count={unread} />}
-            </button>
-          </div>
-          <div className="flex items-center gap-3 rounded-card bg-surface-subtle p-3">
-            <StudentAvatar name={displayName} hue={345} size={38} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold">{displayName}</p>
-              <p className="text-caption text-muted">Giáo viên</p>
-            </div>
-            <LogoutForm>
-              <button type="submit" aria-label="Đăng xuất" className="grid size-9 place-items-center rounded-full text-muted hover:bg-surface hover:text-overdue">
-                <LogOut className="size-4" />
-              </button>
-            </LogoutForm>
-          </div>
-        </div>
       </aside>
 
       {/* ───── Khung nội dung ───── */}
       <div className="min-w-0">
+        {/* Thanh ngang trên máy tính: thông báo · sáng/tối · tài khoản */}
+        <header className="sticky top-0 z-30 hidden h-16 items-center justify-end gap-1 border-b border-line/60 bg-background/80 px-6 backdrop-blur-md lg:flex lg:px-10">
+          <IconButton label={bellLabel} onClick={() => setBellOpen(true)}>
+            <Bell className="size-[18px]" />
+            {unread > 0 && <Dot count={unread} />}
+          </IconButton>
+          <ThemeToggle className="text-foreground" />
+          <UserMenu displayName={displayName} />
+        </header>
+
         {/* Thanh trên điện thoại */}
         <header className="pt-safe sticky top-0 z-30 border-b border-line/60 bg-background/80 backdrop-blur-md lg:hidden">
           <div className="flex h-14 items-center gap-2 px-4">
@@ -249,8 +236,8 @@ function BottomNav({ pathname }: { pathname: string }) {
             aria-label="Điểm danh"
             aria-current={onAttendance ? "page" : undefined}
             className={cn(
-              "bg-hero -mt-8 grid size-16 place-items-center rounded-full text-white shadow-fab ring-4 ring-background transition active:scale-90",
-              onAttendance && "ring-primary-soft",
+              "btn-glow -mt-8 grid size-16 place-items-center rounded-full border-4 border-background active:scale-90",
+              onAttendance && "border-primary-soft",
             )}
           >
             <motion.span
@@ -290,6 +277,84 @@ function TabLink({ item, active }: { item: NavItem; active: boolean }) {
         {item.label}
       </span>
     </Link>
+  );
+}
+
+/** Ô tài khoản ở thanh trên: avatar + tên + vai trò, bấm mở menu nhỏ. */
+function UserMenu({ displayName }: { displayName: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative ml-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex items-center gap-3 rounded-full py-1 pl-1 pr-3 transition hover:bg-surface-subtle"
+      >
+        <StudentAvatar name={displayName} hue={345} size={38} />
+        <span className="text-left leading-tight">
+          <span className="block max-w-40 truncate text-sm font-bold">{displayName}</span>
+          <span className="block text-caption text-muted">Giáo viên</span>
+        </span>
+        <ChevronDown className={cn("size-4 text-muted transition-transform", open && "rotate-180")} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="menu"
+            initial={{ opacity: 0, y: -6, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-full mt-2 w-56 origin-top-right rounded-card border border-line bg-surface p-1.5 shadow-pop"
+          >
+            <Link
+              href="/cai-dat"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-surface-subtle"
+            >
+              <Settings className="size-4 text-muted" /> Cài đặt
+            </Link>
+            <Link
+              href="/doi-mat-khau"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-surface-subtle"
+            >
+              <KeyRound className="size-4 text-muted" /> Đổi mật khẩu
+            </Link>
+            <div className="my-1 h-px bg-line" />
+            <LogoutForm>
+              <button
+                type="submit"
+                role="menuitem"
+                className="flex w-full items-center gap-3 rounded-control px-3 py-2.5 text-sm font-semibold text-overdue hover:bg-overdue-soft"
+              >
+                <LogOut className="size-4" /> Đăng xuất
+              </button>
+            </LogoutForm>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 

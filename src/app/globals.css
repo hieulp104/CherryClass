@@ -50,6 +50,9 @@
   --leaf-gradient: linear-gradient(135deg, #15803d 0%, #16a34a 50%, #4ade80 100%);
   --sunset-gradient: linear-gradient(135deg, #9f1239 0%, #e11d48 45%, #f59e0b 100%);
   --soft-gradient: linear-gradient(160deg, #fff1f2 0%, #fff8f3 60%);
+  /* Nút "glow": dải ngang từ rượu vang sẫm tới hồng cherry — dùng chung cho sáng & tối */
+  --glow-gradient: linear-gradient(90deg, #1f0410 0%, #3b0718 20%, #7a0f30 40%, #be123c 60%, #e11d48 76%, #fb7185 100%);
+  --shadow-glow-btn: 0 4px 22px rgb(225 29 72 / 0.32), inset 0 1px 0 rgb(255 255 255 / 0.16);
 
   /* Biểu đồ — đã chạy validate_palette (dataviz) cho cả sáng & tối */
   --chart-income: #e11d48;
@@ -251,6 +254,29 @@ textarea {
 }
 .bg-soft {
   background: var(--soft-gradient);
+}
+
+/* Nút nổi bật kiểu viên thuốc: gradient ngang + viền sáng mảnh + quầng sáng (Đăng nhập, Điểm danh).
+   Nằm trong layer components để utility (border-*, shadow-*) vẫn ghi đè được. */
+@layer components {
+  .btn-glow {
+    background: var(--glow-gradient);
+    box-shadow: var(--shadow-glow-btn);
+    border: 1px solid rgb(255 255 255 / 0.12);
+    color: #fff;
+    transition: filter 0.25s ease, box-shadow 0.25s ease, scale 0.15s ease;
+  }
+  .btn-glow:hover {
+    filter: brightness(1.12);
+  }
+  /* Vòng tròn nhỏ cuối nút */
+  .btn-ring {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 9999px;
+    border: 1.3px solid rgb(255 255 255 / 0.9);
+  }
 }
 
 /* Lớp hạt chấm nhẹ trên thẻ gradient cho có chiều sâu */
