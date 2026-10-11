@@ -25,15 +25,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { ButtonLink } from "@/components/ui/button";
-import { Card, CardLink } from "@/components/ui/card";
+import { DayHero, phaseOf, type Phase } from "@/modules/today/components/day-hero";
+import { Card, trackSpotlight } from "@/components/ui/card";
 import { Chip, Notice, type ChipTone } from "@/components/ui/feedback";
 import { CountUp } from "@/components/ui/fx";
 import { IconTile } from "@/components/ui/page";
 import type { SessionCard } from "@/modules/classes/classes.service";
 import type { AttentionGroup, AttentionKind, TodayData } from "@/modules/today/today.service";
-import { fullDate, minutesUntil, vnNow, weekdayOf, WEEKDAY_LONG } from "@/lib/dates";
-import { cn, formatVnd, formatVndShort, greetingFor } from "@/lib/utils";
+import { minutesUntil, vnNow } from "@/lib/dates";
+import { cn, formatVnd, formatVndShort } from "@/lib/utils";
 
 // ─────────────── Chuyển động: một nhịp, một đường cong, không nảy ───────────────
 
@@ -69,59 +69,32 @@ function useClock(initial: string) {
   return time;
 }
 
-type Phase = "done" | "cancelled" | "live" | "upcoming" | "missed";
-
-function phaseOf(s: SessionCard, time: string): Phase {
-  if (s.status === "COMPLETED") return "done";
-  if (s.status === "CANCELLED") return "cancelled";
-  if (s.startTime <= time && time < s.endTime) return "live";
-  return time < s.startTime ? "upcoming" : "missed";
-}
-
-/** Ca nên mở ngay: đang học → sắp tới → đã qua mà chưa điểm danh. */
-function pickFocus(sessions: SessionCard[], time: string) {
-  const order: Phase[] = ["live", "upcoming", "missed"];
-  for (const p of order) {
-    const s = sessions.find((x) => phaseOf(x, time) === p);
-    if (s) return s;
-  }
-  return null;
-}
-
 function formatMoney(n: number) {
   return n >= 10_000_000 ? formatVndShort(n) : formatVnd(n);
 }
 
 export function TodayView({ data }: { data: TodayData }) {
   const time = useClock(data.now.time);
-  const hour = Number(time.slice(0, 2));
-  const focus = pickFocus(data.sessions, time);
-  const today = data.now.dateKey;
 
   return (
     <MotionConfig reducedMotion="user">
       <motion.div variants={container} initial="hidden" animate="show">
-        {/* ─────────── Lời chào ─────────── */}
-        <motion.header variants={rise} className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
-              {WEEKDAY_LONG[weekdayOf(today)]}, {fullDate(today)}
-            </p>
-            <h1 className="mt-1 text-h1 font-extrabold tracking-tight sm:text-[2rem]">
-              {greetingFor(hour)}, <span className="text-primary">{data.teacherName}</span>
-            </h1>
-            <p className="mt-1 text-sm text-muted">{data.quote}</p>
-          </div>
-          {focus && (
-            <ButtonLink href={`/diem-danh/${focus.id}`} variant="glow" className="px-6">
-              Điểm danh {focus.classroom.name}
-              <i className="btn-ring" aria-hidden />
-            </ButtonLink>
-          )}
-        </motion.header>
+        {/* ─────────── Dải ngày: lời chào · ca cần mở · thước giờ ─────────── */}
+        <motion.div variants={rise}>
+          <DayHero
+            sessions={data.sessions}
+            time={time}
+            dateKey={data.now.dateKey}
+            teacherName={data.teacherName}
+            quote={data.quote}
+          />
+        </motion.div>
 
-        {/* ─────────── Ô số liệu nhanh ─────────── */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        {/* ─────────── Số liệu nhanh: một bảng liền, chia ô bằng vạch mảnh ─────────── */}
+        <motion.div
+          variants={rise}
+          className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-card border border-line bg-line shadow-card xl:grid-cols-4"
+        >
           <IncomeCard stats={data.stats} />
           <StatCard
             href="/thu-tien"
@@ -141,7 +114,7 @@ export function TodayView({ data }: { data: TodayData }) {
             hint={`${data.stats.classroomCount} lớp`}
           />
           <SessionsStat sessions={data.sessions} time={time} />
-        </div>
+        </motion.div>
 
         {/* ─────────── Lịch hôm nay · Việc cần chú ý ─────────── */}
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -183,11 +156,19 @@ function StatCard({
   children?: React.ReactNode;
 }) {
   return (
-    <motion.div variants={rise} className="min-w-0">
-      <CardLink href={href} className="group relative h-full overflow-hidden p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-2 sm:gap-3">
-          <p className="text-sm font-medium text-muted">{label}</p>
-          <IconTile icon={<Icon className="size-[18px]" />} tone={tone} className="size-8 shrink-0 rounded-[10px] sm:size-9 sm:rounded-[12px]" />
+    <Link
+      href={href}
+      onPointerMove={trackSpotlight}
+      className="spotlight group relative min-w-0 bg-surface p-4 transition-colors hover:bg-surface-raised sm:p-5"
+    >
+        <div className="flex items-center gap-2">
+          <IconTile
+            icon={<Icon className="size-4" />}
+            tone={tone}
+            className="size-7 shrink-0 rounded-[9px] transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110"
+          />
+          <p className="min-w-0 text-sm font-medium leading-snug text-muted">{label}</p>
+          <ChevronRight className="ml-auto size-4 shrink-0 text-muted opacity-0 transition-[opacity,transform] duration-200 group-hover:translate-x-0.5 group-hover:opacity-100" />
         </div>
         <p
           className={cn(
@@ -199,8 +180,7 @@ function StatCard({
         </p>
         <div className="mt-2 text-xs text-muted">{hint}</div>
         {children}
-      </CardLink>
-    </motion.div>
+    </Link>
   );
 }
 
@@ -352,7 +332,7 @@ function ScheduleCard({
   return (
     <motion.div variants={rise} className="min-w-0">
       <Card className="h-full p-5">
-        <h2 className="text-h2 font-bold">Lịch dạy hôm nay</h2>
+        <h2 className="text-lg font-bold tracking-tight">Lịch dạy hôm nay</h2>
         <p className="mt-1 text-sm text-muted">
           {sessions.length ? `${sessions.length} ca · ${students} em` : "Không có ca nào"}
         </p>
@@ -471,7 +451,7 @@ function AttentionCard({ groups }: { groups: AttentionGroup[] }) {
   return (
     <motion.div variants={rise} className="min-w-0">
       <Card className="h-full p-5">
-        <h2 className="flex items-center gap-2 text-h2 font-bold">
+        <h2 className="flex items-center gap-2 text-lg font-bold tracking-tight">
           Việc cần chú ý
           {groups.length > 0 && <Chip tone="overdue">{groups.length}</Chip>}
         </h2>
@@ -617,7 +597,7 @@ function BillingCard({ billing }: { billing: TodayData["billing"] }) {
   return (
     <motion.div variants={rise} className="min-w-0">
       <Card className="h-full p-5">
-        <h2 className="text-h2 font-bold">Phiếu thu theo trạng thái</h2>
+        <h2 className="text-lg font-bold tracking-tight">Phiếu thu theo trạng thái</h2>
         <p className="mt-1 text-sm text-muted">{open} phiếu đang mở</p>
         {open === 0 ? (
           <Card variant="subtle" className="mt-4 flex h-32 items-center justify-center text-sm text-muted">
@@ -655,7 +635,7 @@ function ClassroomCard({ classrooms }: { classrooms: TodayData["classrooms"] }) 
   return (
     <motion.div variants={rise} className="min-w-0">
       <Card className="h-full p-5">
-        <h2 className="text-h2 font-bold">Sĩ số theo lớp</h2>
+        <h2 className="text-lg font-bold tracking-tight">Sĩ số theo lớp</h2>
         <p className="mt-1 text-sm text-muted">
           {total} em · {classrooms.length} lớp
         </p>

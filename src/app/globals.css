@@ -53,6 +53,11 @@
   /* Nút "glow": dải ngang từ rượu vang sẫm tới hồng cherry — dùng chung cho sáng & tối */
   --glow-gradient: linear-gradient(90deg, #1f0410 0%, #3b0718 20%, #7a0f30 40%, #be123c 60%, #e11d48 76%, #fb7185 100%);
   --shadow-glow-btn: 0 4px 22px rgb(225 29 72 / 0.32), inset 0 1px 0 rgb(255 255 255 / 0.16);
+  /* Dải ngày ở Tổng quan: rượu vang đêm, quầng hồng góc phải — giống họ màu nút glow */
+  --night-gradient:
+    radial-gradient(120% 140% at 100% 0%, rgb(225 29 72 / 0.55) 0%, transparent 55%),
+    radial-gradient(80% 120% at 0% 100%, rgb(124 58 237 / 0.22) 0%, transparent 60%),
+    linear-gradient(135deg, #1f0410 0%, #3b0718 55%, #5a0b26 100%);
 
   /* Biểu đồ — đã chạy validate_palette (dataviz) cho cả sáng & tối */
   --chart-income: #e11d48;
@@ -254,6 +259,39 @@ textarea {
 }
 .bg-soft {
   background: var(--soft-gradient);
+}
+
+.bg-night {
+  background: var(--night-gradient);
+}
+/* Thanh bên: mờ dần từ mặt thẻ xuống nền */
+.sidebar-wash {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--c-surface-subtle) 80%, transparent) 0%, var(--c-bg) 100%);
+}
+/* Ánh sáng theo con trỏ trên thẻ bấm được (biến --mx/--my do Spotlight gắn) */
+.spotlight {
+  position: relative;
+  isolation: isolate;
+}
+.spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  background: radial-gradient(320px circle at var(--mx, 50%) var(--my, 50%), color-mix(in oklab, var(--c-primary) 9%, transparent), transparent 70%);
+  pointer-events: none;
+}
+.spotlight:hover::before {
+  opacity: 1;
+}
+/* Lưới chấm mờ trên nền tối của dải ngày */
+.night-grid {
+  background-image: radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1px);
+  background-size: 18px 18px;
+  mask-image: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent);
 }
 
 /* Nút nổi bật kiểu viên thuốc: gradient ngang + viền sáng mảnh + quầng sáng (Đăng nhập, Điểm danh).

@@ -44,19 +44,33 @@ export function MotionCard({
   );
 }
 
-/** Thẻ là link, có hiệu ứng nhấn. */
+/** Gắn vị trí con trỏ vào --mx/--my để lớp `.spotlight` vẽ quầng sáng theo chuột. */
+export function trackSpotlight(e: React.PointerEvent<HTMLElement>) {
+  if (e.pointerType !== "mouse") return;
+  const el = e.currentTarget;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty("--mx", `${e.clientX - r.left}px`);
+  el.style.setProperty("--my", `${e.clientY - r.top}px`);
+}
+
+/** Thẻ là link: nhấc nhẹ khi rê chuột, quầng sáng theo con trỏ, lún khi nhấn. */
 export function CardLink({
   className,
   variant,
+  onPointerMove,
   ...props
 }: LinkProps &
   Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, keyof LinkProps> &
   VariantProps<typeof cardVariants>) {
   return (
     <Link
+      onPointerMove={(e) => {
+        trackSpotlight(e);
+        onPointerMove?.(e);
+      }}
       className={cn(
         cardVariants({ variant }),
-        "block transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-pop active:scale-[0.98]",
+        "spotlight block transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-line-strong hover:shadow-pop active:scale-[0.98]",
         className,
       )}
       {...props}

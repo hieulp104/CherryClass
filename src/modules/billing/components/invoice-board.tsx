@@ -83,9 +83,9 @@ export function InvoiceBoard({
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="bg-hero relative overflow-hidden rounded-card p-5 text-white shadow-pop"
+        className="bg-night relative isolate overflow-hidden rounded-card p-5 text-white shadow-pop sm:p-6"
       >
-        <div className="sparkle-overlay absolute inset-0" />
+        <div className="night-grid absolute inset-0 -z-10" aria-hidden />
         <div className="relative flex items-end justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-white/80">Còn cần thu</p>
@@ -94,7 +94,7 @@ export function InvoiceBoard({
             </p>
             <p className="mt-1.5 text-sm text-white/85">từ {outstanding.students} em</p>
           </div>
-          <Wallet className="size-14 text-white/30" />
+          <Wallet className="size-14 -rotate-12 text-white/20" />
         </div>
       </motion.div>
 

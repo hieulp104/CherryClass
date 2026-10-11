@@ -13,6 +13,8 @@ import {
   KeyRound,
   LogOut,
   Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
   Settings,
   Users,
@@ -26,6 +28,7 @@ import { OfflineSync } from "@/components/layout/offline-sync";
 import { LogoutForm } from "@/components/layout/logout-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { StudentAvatar } from "@/components/ui/avatar";
+import { useStoredValue } from "@/lib/use-external";
 import { Sheet } from "@/components/ui/sheet";
 import {
   listNotificationsAction,
@@ -50,6 +53,15 @@ const MORE: NavItem[] = [
   { href: "/cai-dat", label: "Cài đặt", icon: Settings },
 ];
 
+const SIDEBAR_EVENT = "tc-sidebar-changed";
+function readCollapsed() {
+  try {
+    return localStorage.getItem("tc-sidebar") === "rail";
+  } catch {
+    return false;
+  }
+}
+
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -67,6 +79,15 @@ export function AppShell({
   const [searchOpen, setSearchOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
+  const collapsed = useStoredValue<boolean>(SIDEBAR_EVENT, readCollapsed, false);
+  const toggleCollapsed = () => {
+    try {
+      localStorage.setItem("tc-sidebar", collapsed ? "open" : "rail");
+    } catch {
+      // trình duyệt chặn localStorage — chỉ không nhớ được lần sau
+    }
+    window.dispatchEvent(new Event(SIDEBAR_EVENT));
+  };
   const bellLabel = unread > 0 ? `Thông báo — ${unread} chưa đọc` : "Thông báo";
 
   // Phím tắt "/" hoặc Ctrl+K mở tìm kiếm trên máy tính.
@@ -84,7 +105,10 @@ export function AppShell({
   }, []);
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[260px_1fr]">
+    <div
+      style={{ "--sb": collapsed ? "84px" : "264px" } as React.CSSProperties}
+      className="min-h-dvh lg:grid lg:grid-cols-[var(--sb)_1fr] lg:transition-[grid-template-columns] lg:duration-300 lg:ease-[cubic-bezier(.22,1,.36,1)]"
+    >
       <a
         href="#noi-dung"
         className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[80] focus:rounded-control focus:bg-surface focus:px-4 focus:py-2.5 focus:font-semibold focus:shadow-pop"
@@ -92,38 +116,76 @@ export function AppShell({
         Bỏ qua, tới nội dung chính
       </a>
       <OfflineSync />
-      {/* ───── Sidebar máy tính ───── */}
-      <aside className="sticky top-0 hidden h-dvh flex-col border-r border-line bg-surface/70 px-4 py-5 backdrop-blur lg:flex">
-        <Link href="/hom-nay" className="px-2">
-          <BrandLogo />
-        </Link>
-        <button
-          type="button"
-          onClick={() => setSearchOpen(true)}
-          className="mt-6 flex items-center gap-2 rounded-control border border-line bg-background px-3 py-2.5 text-sm text-muted transition hover:border-line-strong"
-        >
-          <Search className="size-4" /> Tìm học sinh…
-          <kbd className="ml-auto rounded-md bg-surface-subtle px-1.5 text-[11px] font-semibold">/</kbd>
-        </button>
+      {/* ───── Sidebar máy tính: mở rộng ⇄ thu gọn thành cột icon (nhớ theo máy) ───── */}
+      <aside className="sidebar-wash sticky top-0 hidden h-dvh flex-col overflow-hidden border-r border-line px-3 py-4 lg:flex">
+        <div className={cn("flex items-center gap-2", collapsed ? "flex-col" : "pl-2")}>
+          <Link href="/hom-nay" className="mr-auto" aria-label="TeamCherry — Tổng quan">
+            <BrandLogo compact={collapsed} />
+          </Link>
+          <button
+            type="button"
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? "Mở rộng thanh bên" : "Thu gọn thanh bên"}
+            title={collapsed ? "Mở rộng" : "Thu gọn"}
+            className="grid size-9 place-items-center rounded-[12px] text-muted transition hover:bg-surface hover:text-foreground hover:shadow-card"
+          >
+            {collapsed ? <PanelLeftOpen className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
+          </button>
+        </div>
+
         <Link
           href="/diem-danh"
-          className="btn-glow mt-4 flex items-center gap-3 rounded-full py-3 pl-3 pr-5 font-bold active:scale-[0.98]"
+          title={collapsed ? "Điểm danh" : undefined}
+          aria-label="Điểm danh"
+          className={cn(
+            "btn-glow mt-6 flex items-center font-bold active:scale-[0.97]",
+            collapsed ? "mx-auto size-12 justify-center rounded-full" : "gap-3 rounded-full py-3 pl-3 pr-5",
+          )}
         >
           <CherryIcon size={26} />
-          Điểm danh
-          <i className="btn-ring ml-auto" aria-hidden />
+          {!collapsed && (
+            <>
+              Điểm danh
+              <i className="btn-ring ml-auto" aria-hidden />
+            </>
+          )}
         </Link>
-        <nav aria-label="Điều hướng chính" className="mt-5 flex flex-col gap-1">
-          {[...NAV, ...MORE].map((item) => (
-            <SideLink key={item.href} item={item} active={isActive(pathname, item.href)} />
+
+        <nav aria-label="Điều hướng chính" className="mt-6 flex flex-col gap-0.5">
+          {!collapsed && <p className="mb-1 px-3 text-caption font-semibold text-muted">Hằng ngày</p>}
+          {NAV.map((item) => (
+            <SideLink key={item.href} item={item} active={isActive(pathname, item.href)} collapsed={collapsed} />
+          ))}
+          {collapsed ? (
+            <span className="mx-auto my-2 h-px w-8 bg-line" aria-hidden />
+          ) : (
+            <p className="mb-1 mt-4 px-3 text-caption font-semibold text-muted">Quản lý</p>
+          )}
+          {MORE.map((item) => (
+            <SideLink key={item.href} item={item} active={isActive(pathname, item.href)} collapsed={collapsed} />
           ))}
         </nav>
+
+        {!collapsed && (
+          <div className="mt-auto flex items-end gap-2 rounded-card bg-surface/70 p-3 text-caption text-muted shadow-card">
+            <Mascot mood="happy" size={44} />
+            <p className="pb-1">Bấm <kbd className="rounded bg-surface-subtle px-1 font-semibold text-foreground">/</kbd> để tìm nhanh học sinh.</p>
+          </div>
+        )}
       </aside>
 
       {/* ───── Khung nội dung ───── */}
       <div className="min-w-0">
-        {/* Thanh ngang trên máy tính: thông báo · sáng/tối · tài khoản */}
-        <header className="sticky top-0 z-30 hidden h-16 items-center justify-end gap-1 border-b border-line/60 bg-background/80 px-6 backdrop-blur-md lg:flex lg:px-10">
+        {/* Thanh ngang trên máy tính: tìm kiếm · thông báo · sáng/tối · tài khoản */}
+        <header className="sticky top-0 z-30 hidden h-16 items-center gap-1 border-b border-line/60 bg-background/75 px-6 backdrop-blur-xl lg:flex lg:px-10">
+          <button
+            type="button"
+            onClick={() => setSearchOpen(true)}
+            className="group mr-auto flex w-full max-w-sm items-center gap-2.5 rounded-full border border-line bg-surface/80 px-4 py-2 text-sm text-muted transition hover:border-line-strong hover:shadow-card"
+          >
+            <Search className="size-4 transition-transform group-hover:scale-110" /> Tìm học sinh…
+            <kbd className="ml-auto rounded-md border border-line bg-background px-1.5 text-[11px] font-semibold">Ctrl K</kbd>
+          </button>
           <IconButton label={bellLabel} onClick={() => setBellOpen(true)}>
             <Bell className="size-[18px]" />
             {unread > 0 && <Dot count={unread} />}
@@ -197,25 +259,33 @@ export function AppShell({
   );
 }
 
-function SideLink({ item, active }: { item: NavItem; active: boolean }) {
+/** Mục thanh bên. Mục đang mở: nền trắng nổi + vạch cherry bên trái, trượt theo khi đổi trang. */
+function SideLink({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
   return (
     <Link
       href={item.href}
       aria-current={active ? "page" : undefined}
+      aria-label={collapsed ? item.label : undefined}
+      title={collapsed ? item.label : undefined}
       className={cn(
-        "relative flex items-center gap-3 rounded-control px-3 py-2.5 font-semibold transition-colors",
-        active ? "text-primary-deep" : "text-muted hover:bg-surface-subtle hover:text-foreground",
+        "group relative flex items-center gap-3 rounded-control py-2.5 font-semibold transition-colors",
+        collapsed ? "mx-auto size-11 justify-center px-0" : "px-3",
+        active ? "text-primary-deep" : "text-muted hover:text-foreground",
       )}
     >
-      {active && (
+      {active ? (
         <motion.span
           layoutId="side-active"
-          className="absolute inset-0 rounded-control bg-primary-soft"
+          className="absolute inset-0 rounded-control bg-surface shadow-card"
           transition={{ type: "spring", stiffness: 420, damping: 34 }}
-        />
+        >
+          <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-primary" />
+        </motion.span>
+      ) : (
+        <span className="absolute inset-0 rounded-control bg-surface/0 transition-colors group-hover:bg-surface/60" />
       )}
-      <item.icon className="relative size-5" />
-      <span className="relative">{item.label}</span>
+      <item.icon className={cn("relative size-5 transition-transform duration-200", !active && "group-hover:scale-110")} />
+      {!collapsed && <span className="relative">{item.label}</span>}
     </Link>
   );
 }

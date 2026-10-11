@@ -88,14 +88,14 @@ export function FinanceView({
 
       {/* Ba số chính */}
       <section className="grid gap-3 sm:grid-cols-3">
-        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="bg-hero relative overflow-hidden rounded-card p-5 text-white shadow-pop">
-          <div className="sparkle-overlay absolute inset-0" />
+        <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} className="bg-night relative isolate overflow-hidden rounded-card p-5 text-white shadow-pop">
+          <div className="night-grid absolute inset-0 -z-10" aria-hidden />
           <p className="relative text-sm font-semibold text-white/80">Đã thu</p>
           <p className="relative mt-2 text-[2rem] font-extrabold leading-none tracking-tight">
             <CountUp value={overview.income} format={formatVnd} />
           </p>
           {delta !== null && (
-            <p className="relative mt-2 inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 text-sm font-semibold">
+            <p className="relative mt-2 inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 ring-1 ring-inset ring-white/15 py-1 text-sm font-semibold">
               {delta >= 0 ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
               {delta >= 0 ? "+" : ""}
               {Math.round(delta * 100)}% so với {cmp.label}
