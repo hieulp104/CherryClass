@@ -19,7 +19,7 @@ export default async function ParentHomePage({ searchParams }: { searchParams: P
         data={JSON.parse(JSON.stringify(data))}
         frame={frame}
         hour={vnNow().hour}
-        fees={{ balance: fees.balance, unpaid: fees.invoices.filter((i) => i.state !== "PAID").length }}
+        fees={{ toPay: fees.toPay }}
       />
     </PortalFrame>
   );

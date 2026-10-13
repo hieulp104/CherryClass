@@ -120,7 +120,7 @@ function GeneralForm({ settings }: { settings: AppSettings }) {
               onValueChange={(v) => setBilling((b) => ({ ...b, defaultUnitPrice: v }))}
             />
           </Field>
-          <Field label="Số buổi mỗi chu kỳ">
+          <Field label="Số buổi mỗi chu kỳ" hint="Áp dụng cho lớp không đặt số riêng (đặt riêng ở trang Lớp học).">
             <Input
               name="cycleLength"
               type="number"

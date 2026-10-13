@@ -73,6 +73,66 @@ export function planCycles<T extends BillableItem>(
   return { cycles, remaining: sorted.slice(i) };
 }
 
+// ─────────────────── Nhịp chu kỳ theo CA ───────────────────
+//
+// Cả ca đi chung một nhịp: ca học xong đủ N buổi (sau "mốc khép kỳ" gần nhất) là khép kỳ,
+// MỌI em trong ca được ra phiếu cùng lúc. Em mới vào giữa kỳ chỉ có các buổi đã học → phiếu đầu ngắn hơn,
+// không bao giờ bị tính buổi chưa học. Mốc là khóa của buổi khép kỳ — lưu ở Shift.cycleMark.
+
+/** Khóa thứ tự của một buổi, so sánh được như chuỗi: "2026-10-02 17:30". Buổi cộng tay dùng giờ "00:00". */
+export function sessionKey(date: string, time: string): string {
+  return `${date} ${time}`;
+}
+
+/**
+ * Vị trí của ca trong chu kỳ và các lần khép kỳ mới.
+ * `completed`: khóa các buổi ĐÃ XONG của ca (buổi hủy không tính). `mark`: mốc khép kỳ đang lưu (null = chưa khép lần nào).
+ * Đếm các buổi sau mốc; cứ đủ `cycleLength` buổi là một lần khép. Cô giảm số buổi giữa chừng → khép ngay nếu đã qua đủ.
+ */
+export function shiftCycle(
+  completed: readonly string[],
+  mark: string | null,
+  cycleLength: number,
+): { position: number; closes: string[]; mark: string | null } {
+  if (!Number.isInteger(cycleLength) || cycleLength < 1) {
+    throw new Error(`cycleLength không hợp lệ: ${cycleLength}`);
+  }
+  const after = [...completed].filter((k) => mark === null || k > mark).sort();
+  const closes: string[] = [];
+  for (let i = cycleLength - 1; i < after.length; i += cycleLength) closes.push(after[i]);
+  return {
+    position: after.length - closes.length * cycleLength,
+    closes,
+    mark: closes.at(-1) ?? mark,
+  };
+}
+
+/**
+ * Chia các buổi tính tiền CHƯA vào phiếu của một em theo nhịp ca của em.
+ * - Buổi thuộc các kỳ ĐÃ KHÉP (khóa ≤ mốc) → gộp thành MỘT phiếu. Gồm cả kỳ đầu ngắn của em mới vào,
+ *   buổi học bù thêm, buổi lớp khép nhiều kỳ một lúc — không tách thành phiếu lẻ.
+ * - Buổi sau mốc → chờ ca khép kỳ sau.
+ * - `catchUp` (cô cộng tay buổi cũ): phần chờ mà đủ chu kỳ thì ra phiếu ngay theo từng chu kỳ đủ.
+ * - Em không thuộc ca nào (`mark` undefined): theo nhịp riêng của em như trước (`planCycles`).
+ */
+export function planClassInvoices<T extends BillableItem & { key: string }>(
+  uninvoiced: readonly T[],
+  rhythm: { mark: string | null | undefined; cycleLength: number; catchUp?: boolean },
+): { invoices: T[][]; waiting: T[] } {
+  if (rhythm.mark === undefined) {
+    const { cycles, remaining } = planCycles(uninvoiced, rhythm.cycleLength);
+    return { invoices: cycles, waiting: remaining };
+  }
+  const mark = rhythm.mark;
+  const sorted = [...uninvoiced].sort((a, b) => a.key.localeCompare(b.key) || a.id.localeCompare(b.id));
+  const due = mark === null ? [] : sorted.filter((i) => i.key <= mark);
+  const later = mark === null ? sorted : sorted.filter((i) => i.key > mark);
+  const invoices: T[][] = due.length > 0 ? [due] : [];
+  if (!rhythm.catchUp) return { invoices, waiting: later };
+  const { cycles, remaining } = planCycles(later, rhythm.cycleLength);
+  return { invoices: [...invoices, ...cycles], waiting: remaining };
+}
+
 /** Tiến độ chu kỳ hiện tại để vẽ hàng cherry (7/10). */
 export function cycleProgress(uninvoicedCount: number, cycleLength: number) {
   const count = Math.min(uninvoicedCount, cycleLength);
@@ -271,6 +331,64 @@ export function invoiceDue(allocations: readonly InvoiceAllocation[], invoiceId:
   const priorDebt = allocations.slice(0, index).reduce((s, a) => s + a.remaining, 0);
   const me = allocations[index];
   return { priorDebt, remaining: me.remaining, paid: me.paid, totalDue: priorDebt + me.remaining };
+}
+
+/**
+ * Phiếu phụ huynh cần đóng, trong các phiếu ĐÃ GỬI: phiếu MỚI NHẤT còn thiếu tiền.
+ * Số "cần đóng" của nó (`totalDue`, tính sống) đã gồm phần thiếu của mọi phiếu cũ hơn — nên các phiếu cũ còn thiếu
+ * là "đã gộp" vào phiếu này, KHÔNG cộng thêm. `waitingConfirm`: phụ huynh đã báo chuyển phiếu này, chờ cô xác nhận.
+ */
+export function invoiceToPay<T extends { issuedAt: string; remaining: number; totalDue: number; claimed: boolean }>(
+  sent: readonly T[],
+): { invoice: T; merged: T[]; amount: number; waitingConfirm: boolean } | null {
+  const unpaid = sent.filter((i) => i.remaining > 0).sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
+  if (unpaid.length === 0) return null;
+  const [latest, ...older] = unpaid;
+  return { invoice: latest, merged: older, amount: latest.totalDue, waitingConfirm: latest.claimed };
+}
+
+// ─────────────────── Tiền về tài khoản (webhook ngân hàng) ───────────────────
+
+/**
+ * Đọc mã phiếu "PT-2026-0139" trong nội dung chuyển khoản. Ngân hàng hay bỏ dấu gạch, đổi hoa/thường,
+ * chèn mã giao dịch phía trước — nên chấp nhận "PT20260139", "pt 2026 0139", "PT.2026.139".
+ * Không thấy mã, hoặc thấy HAI mã khác nhau → null (không đoán; cô gán tay).
+ */
+export function parseInvoiceCode(content: string): string | null {
+  const found = new Set<string>();
+  const re = /(?<![A-Z0-9])P\s*T[\s\-_.]*(\d{4})[\s\-_.]*(\d{1,6})(?!\d)/gi;
+  for (const m of content.matchAll(re)) found.add(`PT-${m[1]}-${m[2].padStart(4, "0")}`);
+  return found.size === 1 ? [...found][0] : null;
+}
+
+export type BankTransferDecision =
+  | { kind: "IGNORE"; reason: string }
+  | { kind: "UNMATCHED"; reason: string }
+  | { kind: "MATCHED"; code: string; amount: number; fit: "FULL" | "SHORT" | "OVER" };
+
+/**
+ * Tiền về tài khoản nhận học phí thì làm gì:
+ * - Có đúng một mã phiếu (chưa hủy) → ghi nhận ĐÚNG số tiền thật đã về, tự xác nhận. Thiếu/dư vẫn ghi nhận:
+ *   tiền đã ở trong tài khoản; sổ cái tự chuyển phần thiếu/dư sang kỳ sau.
+ * - Không đọc được mã / mã không có / phiếu đã hủy → chờ cô gán tay (không bao giờ đoán em nào).
+ * - Tiền ra, số tiền ≤ 0, tài khoản khác → bỏ qua.
+ */
+export function decideBankTransfer(
+  tx: { transferType: "in" | "out"; amount: number; accountNumber: string; content: string },
+  ctx: { accountNo: string; invoice: { code: string; status: "READY" | "SENT" | "VOID"; totalDue: number } | null },
+): BankTransferDecision {
+  if (tx.transferType !== "in") return { kind: "IGNORE", reason: "Tiền ra khỏi tài khoản" };
+  if (!Number.isInteger(tx.amount) || tx.amount <= 0) return { kind: "IGNORE", reason: "Số tiền không hợp lệ" };
+  if (ctx.accountNo && tx.accountNumber.replace(/\D/g, "") !== ctx.accountNo.replace(/\D/g, "")) {
+    return { kind: "IGNORE", reason: "Không phải tài khoản nhận học phí" };
+  }
+  const code = parseInvoiceCode(tx.content);
+  if (!code) return { kind: "UNMATCHED", reason: "Nội dung chuyển khoản không có mã phiếu" };
+  if (!ctx.invoice || ctx.invoice.code !== code) return { kind: "UNMATCHED", reason: `Không tìm thấy phiếu ${code}` };
+  if (ctx.invoice.status === "VOID") return { kind: "UNMATCHED", reason: `Phiếu ${code} đã hủy` };
+  const due = ctx.invoice.totalDue;
+  const fit = tx.amount === due ? "FULL" : tx.amount < due ? "SHORT" : "OVER";
+  return { kind: "MATCHED", code, amount: tx.amount, fit };
 }
 
 /** Mức nhắc theo số ngày kể từ khi gửi phiếu. Gia đình khó khăn luôn ở mức nhẹ nhất. */

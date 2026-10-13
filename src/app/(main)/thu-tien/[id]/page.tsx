@@ -13,5 +13,11 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const [detail, templates] = await Promise.all([getInvoiceDetail(id), listTemplates()]);
   if (!detail) notFound();
-  return <InvoiceDetailView detail={JSON.parse(JSON.stringify(detail))} templates={templates} />;
+  return (
+    <InvoiceDetailView
+      detail={JSON.parse(JSON.stringify(detail))}
+      templates={templates}
+      devTools={process.env.NODE_ENV !== "production" || process.env.BANK_SIMULATOR === "on"}
+    />
+  );
 }

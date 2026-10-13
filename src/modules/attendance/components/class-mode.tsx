@@ -55,7 +55,7 @@ const STATUS_LABEL: Record<Status, string> = {
 export function ClassMode({ roster }: { roster: Roster }) {
   const router = useRouter();
   const toast = useToast();
-  const { session, billing } = roster;
+  const { session, billing, cyclePosition } = roster;
   const [rows, setRows] = useState<Row[]>(roster.students);
 
   // Nháp đọc SAU khi mount (localStorage không có ở server — đọc trong useState sẽ lệch hydrate).
@@ -121,7 +121,9 @@ export function ClassMode({ roster }: { roster: Roster }) {
     return { present, absent: rows.length - present };
   }, [rows]);
 
-  const willComplete = (r: Row) => r.counted + (isBillable(r.status, billing) ? 1 : 0) >= billing.cycleLength;
+  // Cả ca chung một nhịp: buổi này là buổi thứ N của chu kỳ → ca khép kỳ, mọi em của ca (có buổi chưa tính) có phiếu.
+  const closesCycle = session.status !== "COMPLETED" && cyclePosition + 1 >= billing.cycleLength;
+  const willComplete = (r: Row) => closesCycle && !r.isMakeup && r.counted + (isBillable(r.status, billing) ? 1 : 0) > 0;
   const completing = rows.filter(willComplete).length;
 
   function payload() {
@@ -242,10 +244,16 @@ export function ClassMode({ roster }: { roster: Roster }) {
               Vắng {counts.absent}
             </Chip>
           </motion.span>
-          {completing > 0 && (
+          {completing > 0 ? (
             <Chip tone="primary" className="ml-auto">
-              🍒 {completing} em đủ chu kỳ
+              Buổi này khép chu kỳ · {completing} em có phiếu
             </Chip>
+          ) : (
+            session.status !== "COMPLETED" && (
+              <Chip tone="muted" className="ml-auto tabular-nums">
+                Chu kỳ ca: buổi {Math.min(cyclePosition + 1, billing.cycleLength)}/{billing.cycleLength}
+              </Chip>
+            )
           )}
         </div>
       </header>
@@ -528,7 +536,7 @@ function SwipeCard({
             {row.isMakeup && <Chip tone="sky">Học bù · {row.classroom}</Chip>}
             {glow && !absent && (
               <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }}>
-                <Chip tone="primary">Đủ chu kỳ 🎉</Chip>
+                <Chip tone="primary">Khép kỳ · có phiếu</Chip>
               </motion.span>
             )}
             {row.note && (

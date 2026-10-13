@@ -15,7 +15,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ c
   const frame = { base: ctx.base, displayName: ctx.user.displayName, studentId: ctx.studentId, children: ctx.children };
   return (
     <PortalFrame frame={frame}>
-      <FeesView fees={fees} childName={givenName(basics.fullName)} />
+      <FeesView fees={fees} childName={givenName(basics.fullName)} frame={frame} />
     </PortalFrame>
   );
 }

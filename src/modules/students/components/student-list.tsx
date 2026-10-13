@@ -16,12 +16,10 @@ import { cn, formatVnd } from "@/lib/utils";
 
 export function StudentList({
   students,
-  cycleLength,
   classrooms,
   filter,
 }: {
   students: StudentListItem[];
-  cycleLength: number;
   classrooms: { id: string; name: string; count: number }[];
   filter: { status: "ACTIVE" | "PAUSED" | "LEFT"; classroomId: string; q: string };
 }) {
@@ -135,9 +133,9 @@ export function StudentList({
                       {s.shift ? ` · ${s.shift.name}` : ""} · {s.code}
                     </p>
                     <div className="mt-1 flex items-center gap-2">
-                      <CherryDots count={s.counted} cycle={cycleLength} />
+                      <CherryDots count={s.counted} cycle={s.cycleLength} />
                       <span className="text-[11px] font-semibold text-muted tabular">
-                        {Math.min(s.counted, cycleLength)}/{cycleLength}
+                        {Math.min(s.counted, s.cycleLength)}/{s.cycleLength}
                       </span>
                     </div>
                   </div>

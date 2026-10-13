@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { requirePagePermission } from "@/common/guards/page.guard";
+import { shiftCyclePositions } from "@/modules/billing/billing.service";
 import { listClassrooms, weekSessions } from "@/modules/classes/classes.service";
 import { ClassesView } from "@/modules/classes/components/classes-view";
 import { listTemplates } from "@/modules/messages/messages.service";
@@ -24,6 +25,8 @@ export default async function ClassesPage({ searchParams }: { searchParams: Prom
   return (
     <ClassesView
       classrooms={JSON.parse(JSON.stringify(classrooms))}
+      cycles={Object.fromEntries(await shiftCyclePositions(classrooms.flatMap((c) => c.shifts.map((s) => s.id))))}
+      defaultCycle={settings.billing.cycleLength}
       sessions={sessions}
       week={week}
       today={today}

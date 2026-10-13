@@ -230,7 +230,8 @@ export async function adjustCounterAction(input: unknown): Promise<ActionResult<
       after: { delta, date },
       reason,
     });
-    const issued = await issueDueInvoices(tx, studentId, settings.billing, g.user.id);
+    // Cộng tay buổi cũ: đủ chu kỳ thì ra phiếu ngay, không chờ ca khép kỳ.
+    const issued = await issueDueInvoices(tx, studentId, settings.billing, g.user.id, { catchUp: true });
     return { issued };
   });
   if ("error" in result && result.error) return result.error;

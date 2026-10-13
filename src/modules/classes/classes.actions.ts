@@ -6,6 +6,7 @@ import { z } from "zod";
 import { fail, ok, type ActionResult } from "@/common/filters/error";
 import { can } from "@/common/permissions/permissions";
 import { getCurrentUser } from "@/modules/auth/auth.service";
+import { closeShiftCycle } from "@/modules/billing/billing.service";
 import { regenerateFutureSessions } from "@/modules/classes/classes.service";
 import {
   cancelSessionSchema,
@@ -13,6 +14,7 @@ import {
   createSessionSchema,
   shiftSchema,
 } from "@/modules/classes/classes.schema";
+import { getSettings } from "@/modules/settings/settings.service";
 import { toDbDate } from "@/lib/dates";
 import { writeAuditLog } from "@/shared/audit/audit.service";
 import { prisma } from "@/shared/prisma/prisma.service";
@@ -21,29 +23,46 @@ function firstIssue(error: z.ZodError) {
   return error.issues[0]?.message ?? "Dữ liệu chưa hợp lệ";
 }
 
-export async function saveClassroomAction(input: unknown): Promise<ActionResult<{ id: string }>> {
+/**
+ * Tạo / sửa lớp. Đổi số buổi mỗi chu kỳ: ca nào đã học đủ số buổi mới (tính từ mốc khép kỳ) thì khép kỳ
+ * và ra phiếu ngay cho cả ca — cùng transaction, có AuditLog.
+ */
+export async function saveClassroomAction(input: unknown): Promise<ActionResult<{ id: string; issued: number }>> {
   const user = await getCurrentUser();
   if (!user) return fail("UNAUTHENTICATED");
   if (!can(user, "class.manage")) return fail("PERMISSION_DENIED");
   const parsed = classroomSchema.safeParse(input);
   if (!parsed.success) return fail("VALIDATION_ERROR", firstIssue(parsed.error));
   const { id, ...data } = parsed.data;
+  const settings = await getSettings();
 
-  const saved = await prisma.$transaction(async (tx) => {
-    const before = id ? await tx.classroom.findUnique({ where: { id } }) : null;
-    const row = id ? await tx.classroom.update({ where: { id }, data }) : await tx.classroom.create({ data });
-    await writeAuditLog(tx, {
-      actorId: user.id,
-      action: id ? "CLASSROOM_UPDATE" : "CLASSROOM_CREATE",
-      entity: "Classroom",
-      entityId: row.id,
-      before,
-      after: row,
-    });
-    return row;
-  });
+  const saved = await prisma.$transaction(
+    async (tx) => {
+      const before = id ? await tx.classroom.findUnique({ where: { id } }) : null;
+      const row = id ? await tx.classroom.update({ where: { id }, data }) : await tx.classroom.create({ data });
+      await writeAuditLog(tx, {
+        actorId: user.id,
+        action: id ? "CLASSROOM_UPDATE" : "CLASSROOM_CREATE",
+        entity: "Classroom",
+        entityId: row.id,
+        before,
+        after: row,
+      });
+      let issued = 0;
+      if (before && before.cycleLength !== row.cycleLength) {
+        const shifts = await tx.shift.findMany({ where: { classroomId: row.id }, select: { id: true } });
+        for (const sh of shifts) issued += (await closeShiftCycle(tx, sh.id, settings.billing, user.id)).length;
+      }
+      return { id: row.id, issued };
+    },
+    { timeout: 30_000 },
+  );
   revalidatePath("/lop-hoc");
-  return ok({ id: saved.id });
+  if (saved.issued > 0) {
+    revalidatePath("/thu-tien");
+    revalidatePath("/hom-nay");
+  }
+  return ok(saved);
 }
 
 export async function archiveClassroomAction(id: string): Promise<ActionResult<null>> {

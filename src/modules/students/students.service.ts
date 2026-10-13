@@ -1,6 +1,6 @@
 import type { Prisma } from "@/generated/prisma/client";
 import { uninvoicedCounts } from "@/modules/attendance/attendance.service";
-import { displayStateOf, loadLedgers } from "@/modules/billing/billing.service";
+import { displayStateOf, loadLedgers, shiftCyclePositions } from "@/modules/billing/billing.service";
 import { getSettings } from "@/modules/settings/settings.service";
 import { fromDbDate, todayKey } from "@/lib/dates";
 import { removeDiacritics } from "@/lib/utils";
@@ -49,17 +49,18 @@ export async function listStudents(filter: StudentFilter = {}) {
       parentPhone: true,
       unitPrice: true,
       siblingGroupId: true,
-      classroom: { select: { id: true, name: true } },
+      classroom: { select: { id: true, name: true, cycleLength: true } },
       shift: { select: { name: true } },
     },
   });
   const ids = students.map((s) => s.id);
   const [counts, ledgers, settings] = await Promise.all([uninvoicedCounts(ids), loadLedgers(ids), getSettings()]);
   return {
-    cycleLength: settings.billing.cycleLength,
     students: students.map((s) => ({
       ...s,
       counted: counts.get(s.id) ?? 0,
+      /** Số buổi mỗi chu kỳ của lớp em. */
+      cycleLength: s.classroom.cycleLength ?? settings.billing.cycleLength,
       balance: ledgers.get(s.id)?.balance ?? 0,
     })),
   };
@@ -93,7 +94,7 @@ export async function getStudentNotebook(id: string, includePrivate: boolean) {
   const student = await prisma.student.findFirst({
     where: { id, deletedAt: null },
     include: {
-      classroom: { select: { id: true, name: true, grade: true } },
+      classroom: { select: { id: true, name: true, grade: true, cycleLength: true } },
       shift: { select: { id: true, name: true } },
       siblingGroup: {
         include: {
@@ -157,7 +158,9 @@ export async function getStudentNotebook(id: string, includePrivate: boolean) {
       hardship: includePrivate ? student.hardship : false,
     },
     cycle: {
-      length: settings.billing.cycleLength,
+      length: student.classroom.cycleLength ?? settings.billing.cycleLength,
+      /** Ca của em đang ở buổi thứ mấy của chu kỳ (cả ca chung nhịp). null = em chưa xếp ca. */
+      shiftPosition: student.shift ? ((await shiftCyclePositions([student.shift.id])).get(student.shift.id)?.position ?? 0) : null,
       count: uninvoiced.length,
       dates: uninvoiced.map((a) => fromDbDate(a.date)),
     },

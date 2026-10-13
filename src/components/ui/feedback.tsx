@@ -158,3 +158,20 @@ export function Notice({
     </div>
   );
 }
+
+/**
+ * Chấm đỏ có số + vòng lan (nhắc việc cần làm, vd phiếu cần đóng). Có chữ cho trình đọc màn hình;
+ * vòng lan tự tắt khi bật "giảm chuyển động".
+ */
+export function PingBadge({ count, label, className }: { count: number; label: string; className?: string }) {
+  if (count <= 0) return null;
+  return (
+    <span className={cn("relative inline-grid size-5 shrink-0 place-items-center", className)}>
+      <span className="absolute inset-0 rounded-full bg-primary/50 motion-safe:animate-ping" aria-hidden />
+      <span className="relative grid size-5 place-items-center rounded-full bg-primary text-[11px] font-bold leading-none text-on-primary ring-2 ring-surface">
+        {count > 9 ? "9+" : count}
+      </span>
+      <span className="sr-only">{label}</span>
+    </span>
+  );
+}

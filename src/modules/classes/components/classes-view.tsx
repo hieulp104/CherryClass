@@ -46,6 +46,8 @@ export function ClassesView({
   quietHours,
   teacherName,
   appUrl,
+  cycles,
+  defaultCycle,
 }: {
   classrooms: Classroom[];
   sessions: WeekSession[];
@@ -56,6 +58,10 @@ export function ClassesView({
   quietHours: { from: string; to: string };
   teacherName: string;
   appUrl: string;
+  /** Vị trí trong chu kỳ của từng ca: buổi thứ mấy / bao nhiêu buổi. */
+  cycles: Record<string, { position: number; length: number }>;
+  /** Số buổi mỗi chu kỳ theo Cài đặt chung. */
+  defaultCycle: number;
 }) {
   const [view, setView] = useState(initialView);
   const [classSheet, setClassSheet] = useState<Classroom | "new" | null>(null);
@@ -105,7 +111,7 @@ export function ClassesView({
                         <div className="min-w-0 flex-1">
                           <p className="text-lg font-extrabold">{c.name}</p>
                           <p className="text-sm text-muted">
-                            Khối {c.grade} · {c._count.students} em · {c.shifts.length} ca
+                            Khối {c.grade} · {c._count.students} em · {c.shifts.length} ca · chu kỳ {c.cycleLength ?? defaultCycle} buổi
                           </p>
                         </div>
                         <Link href={`/hoc-sinh?lop=${c.id}`} className="grid size-10 place-items-center rounded-full bg-surface text-muted shadow-card" aria-label="Học sinh lớp này">
@@ -136,6 +142,7 @@ export function ClassesView({
                                   ))}
                                 </div>
                               </div>
+                              {cycles[s.id] && <CyclePill {...cycles[s.id]} />}
                               <span className="text-sm font-semibold text-muted">{s._count.students} em</span>
                               <ChevronRight className="size-4 text-muted" />
                             </button>
@@ -171,7 +178,7 @@ export function ClassesView({
         )}
       </AnimatePresence>
 
-      <ClassroomSheet value={classSheet} onClose={() => setClassSheet(null)} />
+      <ClassroomSheet value={classSheet} onClose={() => setClassSheet(null)} defaultCycle={defaultCycle} />
       <ShiftSheet value={shiftSheet} onClose={() => setShiftSheet(null)} />
     </div>
   );
@@ -179,7 +186,7 @@ export function ClassesView({
 
 // ───── Lớp ─────
 
-function ClassroomSheet({ value, onClose }: { value: Classroom | "new" | null; onClose: () => void }) {
+function ClassroomSheet({ value, onClose, defaultCycle }: { value: Classroom | "new" | null; onClose: () => void; defaultCycle: number }) {
   const router = useRouter();
   const toast = useToast();
   const editing = value && value !== "new" ? value : null;
@@ -189,9 +196,17 @@ function ClassroomSheet({ value, onClose }: { value: Classroom | "new" | null; o
 
   const submit = (fd: FormData) =>
     start(async () => {
-      const res = await saveClassroomAction({ id: editing?.id, name: fd.get("name"), grade: fd.get("grade"), color });
+      const res = await saveClassroomAction({
+        id: editing?.id,
+        name: fd.get("name"),
+        grade: fd.get("grade"),
+        color,
+        cycleLength: fd.get("cycleLength"),
+      });
       if (!res.ok) return setError(res.message);
-      toast.success(editing ? "Đã lưu lớp" : "Đã tạo lớp mới 🎉");
+      toast.success(
+        res.data.issued > 0 ? `Đã lưu lớp · ca đã đủ buổi nên có ${res.data.issued} phiếu mới 🍒` : editing ? "Đã lưu lớp" : "Đã tạo lớp mới 🎉",
+      );
       onClose();
       router.refresh();
     });
@@ -220,6 +235,20 @@ function ClassroomSheet({ value, onClose }: { value: Classroom | "new" | null; o
               </option>
             ))}
           </Select>
+        </Field>
+        <Field
+          label="Số buổi mỗi chu kỳ"
+          hint={`Để trống = theo Cài đặt chung (${defaultCycle} buổi). Cả ca đi chung một nhịp: em mới vào được phiếu đầu ngắn hơn, ra cùng lúc với cả ca. Đổi số buổi mà ca đã học đủ số mới thì ca khép kỳ và ra phiếu ngay.`}
+        >
+          <Input
+            name="cycleLength"
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={60}
+            defaultValue={editing?.cycleLength ?? ""}
+            placeholder={`${defaultCycle} (theo cài đặt chung)`}
+          />
         </Field>
         <Field label="Màu lớp">
           <div className="flex flex-wrap gap-2">
@@ -597,5 +626,21 @@ function ExtraSessionSheet({ open, onClose, classrooms, defaultDate }: { open: b
         </Button>
       </form>
     </Sheet>
+  );
+}
+
+/** Ca đang ở buổi thứ mấy của chu kỳ — cả ca chung một nhịp. */
+function CyclePill({ position, length }: { position: number; length: number }) {
+  // Buổi kế tiếp là buổi thứ position + 1; position = 0 nghĩa là vừa khép kỳ.
+  const pct = Math.min(1, position / length);
+  return (
+    <span className="hidden shrink-0 flex-col items-end gap-1 sm:flex" title={`Ca đã học ${position}/${length} buổi của chu kỳ này`}>
+      <span className="text-caption font-semibold tabular-nums text-muted">
+        Chu kỳ {position}/{length}
+      </span>
+      <span className="block h-1 w-16 overflow-hidden rounded-full bg-surface-subtle" aria-hidden>
+        <span className="block h-full origin-left rounded-full bg-primary" style={{ transform: `scaleX(${pct})` }} />
+      </span>
+    </span>
   );
 }

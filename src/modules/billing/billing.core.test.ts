@@ -10,6 +10,12 @@ import {
   firstChildId,
   invoiceDisplayState,
   invoiceDue,
+  invoiceToPay,
+  decideBankTransfer,
+  parseInvoiceCode,
+  planClassInvoices,
+  sessionKey,
+  shiftCycle,
   isBillable,
   planCycles,
   reminderTone,
@@ -408,5 +414,218 @@ describe("giọng nhắc", () => {
 
   it("gia đình khó khăn luôn nhẹ nhất", () => {
     expect(reminderTone(30, true, t)).toBe("FEE_SOFT");
+  });
+});
+
+describe("phiếu phụ huynh cần đóng (cổng phụ huynh)", () => {
+  // Phiếu đã gửi + số liệu sống từ sổ cái. Thứ tự đầu vào cố ý lộn xộn.
+  const inv = (id: string, issuedAt: string, remaining: number, totalDue: number, claimed = false) => ({ id, issuedAt, remaining, totalDue, claimed });
+
+  it("không còn thiếu đồng nào → không có gì phải đóng", () => {
+    expect(invoiceToPay([inv("p1", "2026-09-01", 0, 0)])).toBeNull();
+    expect(invoiceToPay([])).toBeNull();
+  });
+
+  it("một phiếu còn thiếu → đóng đúng phiếu đó", () => {
+    const r = invoiceToPay([inv("p1", "2026-09-01", 0, 0), inv("p2", "2026-10-01", 720_000, 720_000)]);
+    expect(r?.invoice.id).toBe("p2");
+    expect(r?.merged).toEqual([]);
+    expect(r?.amount).toBe(720_000);
+  });
+
+  it("nhiều phiếu còn thiếu → chỉ đóng phiếu MỚI NHẤT, số tiền đã gồm nợ cũ — không cộng hai lần", () => {
+    const old = inv("p1", "2026-09-11", 720_000, 720_000);
+    const latest = inv("p2", "2026-10-13", 720_000, 1_440_000);
+    const r = invoiceToPay([latest, old].reverse());
+    expect(r?.invoice.id).toBe("p2");
+    expect(r?.merged.map((m) => m.id)).toEqual(["p1"]);
+    expect(r?.amount).toBe(1_440_000); // không phải 720k + 1.440k
+  });
+
+  it("phụ huynh đã báo chuyển phiếu mới nhất → đang chờ cô xác nhận, chưa nhắc đóng", () => {
+    const r = invoiceToPay([inv("p1", "2026-09-11", 720_000, 720_000), inv("p2", "2026-10-13", 720_000, 1_440_000, true)]);
+    expect(r?.invoice.id).toBe("p2");
+    expect(r?.waitingConfirm).toBe(true);
+  });
+
+  it("đóng thiếu phiếu cũ, phiếu mới còn nguyên → số cần đóng là phần thiếu + phiếu mới", () => {
+    const r = invoiceToPay([inv("p1", "2026-09-01", 220_000, 220_000), inv("p2", "2026-10-01", 720_000, 940_000)]);
+    expect(r?.amount).toBe(940_000);
+  });
+});
+
+// ─────────────────── Nhịp chu kỳ theo CA (em mới vào theo tiến độ cả lớp) ───────────────────
+
+describe("nhịp chu kỳ của một ca", () => {
+  // 12 buổi đã xong của một ca, Thứ 3 & Thứ 6 lúc 17:30.
+  const keys = [
+    "2026-09-01", "2026-09-04", "2026-09-08", "2026-09-11", "2026-09-15", "2026-09-18",
+    "2026-09-22", "2026-09-25", "2026-09-29", "2026-10-02", "2026-10-06", "2026-10-09",
+  ].map((d) => sessionKey(d, "17:30"));
+
+  it("chưa có mốc: đếm từ buổi đầu, đủ 10 buổi thì khép kỳ ở buổi thứ 10", () => {
+    const r = shiftCycle(keys, null, 10);
+    expect(r.closes).toEqual([keys[9]]);
+    expect(r.mark).toBe(keys[9]);
+    expect(r.position).toBe(2); // còn 2 buổi của kỳ mới
+  });
+
+  it("có mốc: chỉ đếm buổi SAU mốc; chưa đủ thì không khép", () => {
+    const r = shiftCycle(keys, keys[9], 10);
+    expect(r.closes).toEqual([]);
+    expect(r.mark).toBe(keys[9]);
+    expect(r.position).toBe(2);
+  });
+
+  it("cô giảm số buổi của lớp giữa chừng (10 → 6): đã qua 7 buổi → khép ngay ở buổi thứ 6", () => {
+    const mark = keys[1]; // kỳ hiện tại bắt đầu từ buổi thứ 3
+    expect(shiftCycle(keys.slice(0, 9), mark, 10).position).toBe(7); // trước khi đổi: buổi 7/10
+    const after = shiftCycle(keys.slice(0, 9), mark, 6); // đổi thành 6 buổi
+    expect(after.closes).toEqual([keys[7]]);
+    expect(after.position).toBe(1);
+  });
+
+  it("giảm mạnh khép nhiều kỳ một lúc thì mốc nằm ở kỳ cuối cùng", () => {
+    const r = shiftCycle(keys.slice(0, 7), null, 3);
+    expect(r.closes).toEqual([keys[2], keys[5]]);
+    expect(r.mark).toBe(keys[5]);
+    expect(r.position).toBe(1);
+  });
+
+  it("thứ tự đầu vào không quan trọng", () => {
+    expect(shiftCycle([...keys].reverse(), null, 10)).toEqual(shiftCycle(keys, null, 10));
+  });
+
+  it("số buổi không hợp lệ thì báo lỗi, không đoán", () => {
+    expect(() => shiftCycle(keys, null, 0)).toThrow();
+  });
+});
+
+describe("phiếu theo nhịp lớp", () => {
+  const item = (n: number, date: string, time = "17:30") => ({ id: `a${n}`, date, key: sessionKey(date, time), unitPrice: 80_000 });
+  const mark = sessionKey("2026-10-02", "17:30"); // lớp vừa khép kỳ ở buổi 02/10
+
+  it("em đi đủ: 10 buổi trong kỳ vừa khép → một phiếu 10 buổi", () => {
+    const items = Array.from({ length: 10 }, (_, i) => item(i, `2026-09-${String(10 + i).padStart(2, "0")}`));
+    const r = planClassInvoices(items, { mark, cycleLength: 10 });
+    expect(r.invoices).toHaveLength(1);
+    expect(r.invoices[0]).toHaveLength(10);
+    expect(r.waiting).toEqual([]);
+  });
+
+  it("em mới vào giữa kỳ: chỉ 5 buổi đã học → phiếu NGẮN 5 buổi, ra cùng lúc với cả lớp", () => {
+    const items = [22, 25, 29].map((d, i) => item(i, `2026-09-${d}`)).concat([item(3, "2026-10-01"), item(4, "2026-10-02")]);
+    const r = planClassInvoices(items, { mark, cycleLength: 10 });
+    expect(r.invoices).toEqual([items]);
+    const sum = computeInvoiceAmounts({ lines: r.invoices[0], discount: null, isFirstChild: false, roundTo: 1000 });
+    expect(sum.amount).toBe(400_000); // không bị tính buổi chưa học
+  });
+
+  it("buổi sau mốc chờ lớp khép kỳ sau — không tạo phiếu sớm", () => {
+    const items = [item(0, "2026-10-06"), item(1, "2026-10-09")];
+    const r = planClassInvoices(items, { mark, cycleLength: 10 });
+    expect(r.invoices).toEqual([]);
+    expect(r.waiting).toEqual(items);
+  });
+
+  it("vắng có phép không tính (cô tắt trong Cài đặt): 9 buổi tính tiền → phiếu 9 buổi, vẫn đúng nhịp lớp", () => {
+    const items = Array.from({ length: 9 }, (_, i) => item(i, `2026-09-${String(10 + i).padStart(2, "0")}`));
+    expect(planClassInvoices(items, { mark, cycleLength: 10 }).invoices[0]).toHaveLength(9);
+  });
+
+  it("học bù thêm ở ca khác trong kỳ: 11 buổi → một phiếu 11 buổi, không tách phiếu lẻ 1 buổi", () => {
+    const items = Array.from({ length: 11 }, (_, i) => item(i, `2026-09-${String(10 + i).padStart(2, "0")}`, i === 4 ? "08:00" : "17:30"));
+    const r = planClassInvoices(items, { mark, cycleLength: 10 });
+    expect(r.invoices).toHaveLength(1);
+    expect(r.invoices[0]).toHaveLength(11);
+  });
+
+  it("lớp chưa khép kỳ nào (chưa có mốc): mọi buổi đều chờ", () => {
+    const items = [item(0, "2026-09-10")];
+    expect(planClassInvoices(items, { mark: null, cycleLength: 10 }).invoices).toEqual([]);
+  });
+
+  it("cô cộng tay 10 buổi cũ (trước khi dùng app): đủ chu kỳ thì ra phiếu ngay, không chờ lớp", () => {
+    const manual = Array.from({ length: 12 }, (_, i) => ({ ...item(i, "2026-10-05"), key: sessionKey("2026-10-05", "00:00") }));
+    const r = planClassInvoices(manual, { mark, cycleLength: 10, catchUp: true });
+    expect(r.invoices).toHaveLength(1);
+    expect(r.invoices[0]).toHaveLength(10);
+    expect(r.waiting).toHaveLength(2);
+  });
+
+  it("buổi cũ trước mốc + buổi đủ chu kỳ sau mốc khi cộng tay: phần trước mốc thành một phiếu, phần sau xét riêng", () => {
+    const old = [item(0, "2026-09-30")];
+    const after = Array.from({ length: 10 }, (_, i) => ({ ...item(i + 1, "2026-10-05"), key: sessionKey("2026-10-05", "00:00") }));
+    const r = planClassInvoices([...after, ...old], { mark, cycleLength: 10, catchUp: true });
+    expect(r.invoices.map((c) => c.length)).toEqual([1, 10]);
+  });
+
+  it("em không thuộc ca nào: theo nhịp riêng như trước (đủ 10 buổi mới ra phiếu)", () => {
+    const items = Array.from({ length: 13 }, (_, i) => item(i, `2026-09-${String(10 + i).padStart(2, "0")}`));
+    const r = planClassInvoices(items, { mark: undefined, cycleLength: 10 });
+    expect(r.invoices.map((c) => c.length)).toEqual([10]);
+    expect(r.waiting).toHaveLength(3);
+  });
+
+  it("một buổi không bao giờ nằm ở hai phiếu", () => {
+    const items = Array.from({ length: 25 }, (_, i) => item(i, i < 12 ? `2026-09-${String(10 + i).padStart(2, "0")}` : "2026-10-05"));
+    const r = planClassInvoices(items, { mark, cycleLength: 10, catchUp: true });
+    const ids = [...r.invoices.flat(), ...r.waiting].map((x) => x.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toHaveLength(25);
+  });
+});
+
+// ─────────────────── Tiền về tài khoản (webhook ngân hàng) ───────────────────
+
+describe("đọc mã phiếu trong nội dung chuyển khoản", () => {
+  it("đúng như mã QR điền sẵn", () => {
+    expect(parseInvoiceCode("HP PT-2026-0139 Tran Minh Chau")).toBe("PT-2026-0139");
+  });
+  it("ngân hàng bỏ dấu gạch, đổi chữ thường, chèn mã giao dịch", () => {
+    expect(parseInvoiceCode("MBVCB.1234.HP PT20260139 TRAN MINH CHAU")).toBe("PT-2026-0139");
+    expect(parseInvoiceCode("hp pt 2026 0139 chau")).toBe("PT-2026-0139");
+    expect(parseInvoiceCode("HP PT.2026.139")).toBe("PT-2026-0139");
+  });
+  it("không có mã phiếu → null (không đoán)", () => {
+    expect(parseInvoiceCode("chuyen tien hoc cho chau")).toBeNull();
+    expect(parseInvoiceCode("")).toBeNull();
+  });
+  it("hai mã khác nhau trong một nội dung → null, để cô gán tay", () => {
+    expect(parseInvoiceCode("HP PT-2026-0139 va PT-2026-0140")).toBeNull();
+  });
+});
+
+describe("quyết định khi có tiền về", () => {
+  const base = { transferType: "in" as const, amount: 720_000, accountNumber: "99141401042004", content: "HP PT-2026-0139 Chau" };
+  const ctx = { accountNo: "99141401042004", invoice: { code: "PT-2026-0139", status: "SENT" as const, totalDue: 720_000 } };
+
+  it("đúng mã, đúng số tiền → tự xác nhận, đủ", () => {
+    expect(decideBankTransfer(base, ctx)).toEqual({ kind: "MATCHED", code: "PT-2026-0139", amount: 720_000, fit: "FULL" });
+  });
+  it("đúng mã, chuyển thiếu → vẫn ghi nhận đúng số tiền thật, đánh dấu THIẾU (nợ tự sang kỳ sau)", () => {
+    expect(decideBankTransfer({ ...base, amount: 500_000 }, ctx)).toMatchObject({ kind: "MATCHED", amount: 500_000, fit: "SHORT" });
+  });
+  it("đúng mã, chuyển dư → ghi nhận đủ số tiền thật, đánh dấu DƯ (tự trừ kỳ sau)", () => {
+    expect(decideBankTransfer({ ...base, amount: 800_000 }, ctx)).toMatchObject({ kind: "MATCHED", amount: 800_000, fit: "OVER" });
+  });
+  it("phiếu chưa gửi vẫn khớp được (phụ huynh chuyển sớm theo tin nhắn)", () => {
+    expect(decideBankTransfer(base, { ...ctx, invoice: { ...ctx.invoice, status: "READY" } }).kind).toBe("MATCHED");
+  });
+  it("tiền ra khỏi tài khoản → bỏ qua", () => {
+    expect(decideBankTransfer({ ...base, transferType: "out" }, ctx).kind).toBe("IGNORE");
+  });
+  it("tiền vào tài khoản khác (không phải tài khoản nhận học phí) → bỏ qua", () => {
+    expect(decideBankTransfer({ ...base, accountNumber: "0000111122" }, ctx).kind).toBe("IGNORE");
+  });
+  it("không có mã phiếu → chờ cô gán tay", () => {
+    expect(decideBankTransfer({ ...base, content: "chuyen tien hoc" }, { ...ctx, invoice: null })).toMatchObject({ kind: "UNMATCHED" });
+  });
+  it("mã phiếu không tồn tại hoặc đã hủy → chờ cô gán tay", () => {
+    expect(decideBankTransfer(base, { ...ctx, invoice: null })).toMatchObject({ kind: "UNMATCHED" });
+    expect(decideBankTransfer(base, { ...ctx, invoice: { ...ctx.invoice, status: "VOID" } })).toMatchObject({ kind: "UNMATCHED" });
+  });
+  it("số tiền 0 hoặc âm → bỏ qua", () => {
+    expect(decideBankTransfer({ ...base, amount: 0 }, ctx).kind).toBe("IGNORE");
   });
 });

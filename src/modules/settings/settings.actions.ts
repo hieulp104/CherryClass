@@ -6,6 +6,7 @@ import { z } from "zod";
 import { fail, ok, type ActionResult } from "@/common/filters/error";
 import { can } from "@/common/permissions/permissions";
 import { getCurrentUser } from "@/modules/auth/auth.service";
+import { closeShiftCycle } from "@/modules/billing/billing.service";
 import { getSettings, saveSetting } from "@/modules/settings/settings.service";
 import { writeAuditLog } from "@/shared/audit/audit.service";
 import { prisma } from "@/shared/prisma/prisma.service";
@@ -53,6 +54,8 @@ export async function saveSettingsAction(input: unknown): Promise<ActionResult<n
   const before = await getSettings();
   const d = parsed.data;
   await prisma.$transaction(async (tx) => {
+    // Đổi số buổi chung: lớp nào theo số chung mà ca đã học đủ số mới → khép kỳ, ra phiếu ngay (sau khi lưu cài đặt).
+    const closeAfter = before.billing.cycleLength !== d.billing.cycleLength;
     await saveSetting("teacherName", d.teacherName, tx);
     await saveSetting("billing", d.billing, tx);
     await saveSetting("bank", d.bank, tx);
@@ -67,7 +70,12 @@ export async function saveSettingsAction(input: unknown): Promise<ActionResult<n
       before: { teacherName: before.teacherName, billing: before.billing, bank: before.bank, reminders: before.reminders },
       after: d,
     });
-  });
+    if (closeAfter) {
+      const billing = { ...before.billing, ...d.billing };
+      const shifts = await tx.shift.findMany({ where: { classroom: { cycleLength: null, archivedAt: null } }, select: { id: true } });
+      for (const sh of shifts) await closeShiftCycle(tx, sh.id, billing, user.id);
+    }
+  }, { timeout: 60_000 });
   revalidatePath("/", "layout");
   return ok(null);
 }

@@ -19,10 +19,21 @@ type Live = Extract<PublicInvoice, { expired: false }>;
  * Phiếu học phí cho phụ huynh — "như một tấm thiệp".
  * Không có thanh điều hướng, không cần đăng nhập. Chỉ hiển thị những trường DTO cho phép.
  */
-export function PublicInvoiceCard({ invoice, token, qr }: { invoice: Live | null; token: string; qr: string | null }) {
+export function PublicInvoiceCard({
+  invoice,
+  token,
+  qr,
+  embedded = false,
+}: {
+  invoice: Live | null;
+  token: string;
+  qr: string | null;
+  /** Đặt trong cổng phụ huynh (đã có khung app) — bỏ nền toàn trang và dòng chân. */
+  embedded?: boolean;
+}) {
   if (!invoice) {
     return (
-      <Shell>
+      <Shell embedded={embedded}>
         <div className="flex flex-col items-center py-10 text-center">
           <Mascot mood="sleepy" size={120} />
           <p className="mt-3 text-xl font-extrabold">Phiếu này không còn hiệu lực</p>
@@ -33,10 +44,11 @@ export function PublicInvoiceCard({ invoice, token, qr }: { invoice: Live | null
       </Shell>
     );
   }
-  return <Live invoice={invoice} token={token} qr={qr} />;
+  return <Live invoice={invoice} token={token} qr={qr} embedded={embedded} />;
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, embedded = false }: { children: React.ReactNode; embedded?: boolean }) {
+  if (embedded) return <div className="mx-auto max-w-md">{children}</div>;
   return (
     <main className="bg-soft min-h-dvh px-4 py-6 sm:py-12">
       <div className="mx-auto max-w-md">{children}</div>
@@ -47,7 +59,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Live({ invoice, token, qr }: { invoice: Live; token: string; qr: string | null }) {
+function Live({ invoice, token, qr, embedded }: { invoice: Live; token: string; qr: string | null; embedded: boolean }) {
   const toast = useToast();
   const [claimed, setClaimed] = useState(invoice.state === "CLAIMED");
   const [pending, start] = useTransition();
@@ -76,7 +88,7 @@ function Live({ invoice, token, qr }: { invoice: Live; token: string; qr: string
   const transferNote = `HP ${invoice.code} ${invoice.studentName}`;
 
   return (
-    <Shell>
+    <Shell embedded={embedded}>
       <CherryConfetti fire={confetti} />
       <motion.article
         initial={{ opacity: 0, y: 30, rotate: -1 }}

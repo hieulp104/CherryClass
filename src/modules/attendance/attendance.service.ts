@@ -1,3 +1,4 @@
+import { shiftCyclePositions } from "@/modules/billing/billing.service";
 import { getSettings } from "@/modules/settings/settings.service";
 import { addDays, fromDbDate, todayKey, toDbDate } from "@/lib/dates";
 import { prisma } from "@/shared/prisma/prisma.service";
@@ -69,7 +70,7 @@ export async function getRoster(sessionId: string) {
   for (const m of members) all.set(m.id, m);
   for (const a of session.attendances) if (!all.has(a.studentId)) all.set(a.studentId, a.student);
 
-  const counts = await uninvoicedCounts([...all.keys()], session.id);
+  const [counts, cycles] = await Promise.all([uninvoicedCounts([...all.keys()], session.id), shiftCyclePositions([session.shiftId])]);
   const mmdd = date.slice(5);
   const settings = await getSettings();
 
@@ -106,7 +107,10 @@ export async function getRoster(sessionId: string) {
       classroom: session.shift.classroom,
     },
     students,
-    billing: settings.billing,
+    // Số buổi mỗi chu kỳ theo LỚP của ca (cô đặt riêng được), không chỉ theo cài đặt chung.
+    billing: { ...settings.billing, cycleLength: cycles.get(session.shiftId)?.length ?? settings.billing.cycleLength },
+    /** Ca đang ở buổi thứ mấy của chu kỳ — chưa kể buổi này nếu buổi này chưa chốt. */
+    cyclePosition: cycles.get(session.shiftId)?.position ?? 0,
   };
 }
 

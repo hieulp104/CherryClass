@@ -6,10 +6,40 @@
 
 import { daysUntil, examCheer } from "@/modules/assignments/assignments.core";
 import { studentAssignments, studentProgress } from "@/modules/assignments/assignments.service";
+import { invoiceToPay } from "@/modules/billing/billing.core";
 import { displayStateOf, loadLedgers } from "@/modules/billing/billing.service";
 import { getSettings } from "@/modules/settings/settings.service";
 import { addDays, fromDbDate, todayKey, toDbDate, WEEKDAY_SHORT } from "@/lib/dates";
 import { prisma } from "@/shared/prisma/prisma.service";
+
+/**
+ * Còn khoản cần đóng không (chấm đỏ ở mục "Học phí"): 1 nếu có phiếu đã gửi còn thiếu tiền mà phụ huynh CHƯA báo chuyển.
+ * Luôn là MỘT khoản — phiếu mới nhất đã gồm nợ các phiếu cũ (xem `invoiceToPay`).
+ */
+export async function feesDueByStudent(studentIds: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>(studentIds.map((id) => [id, 0]));
+  if (studentIds.length === 0) return out;
+  const [settings, invoices, ledgers] = await Promise.all([
+    getSettings(),
+    prisma.invoice.findMany({
+      where: { studentId: { in: studentIds }, status: "SENT" },
+      select: { id: true, studentId: true, status: true, sentAt: true, issuedAt: true },
+    }),
+    loadLedgers(studentIds),
+  ]);
+  for (const id of studentIds) {
+    const ledger = ledgers.get(id);
+    const rows = invoices
+      .filter((i) => i.studentId === id)
+      .map((i) => {
+        const s = displayStateOf(i, ledger, settings);
+        return { issuedAt: i.issuedAt.toISOString(), remaining: s.remaining, totalDue: s.totalDue, claimed: s.state === "CLAIMED" };
+      });
+    const pay = invoiceToPay(rows);
+    out.set(id, pay && !pay.waitingConfirm ? 1 : 0);
+  }
+  return out;
+}
 
 export async function studentBasics(studentId: string) {
   const s = await prisma.student.findUniqueOrThrow({
@@ -93,12 +123,18 @@ export async function portalFees(studentId: string) {
     loadLedgers([studentId]),
   ]);
   const ledger = ledgers.get(studentId);
+  // Phiếu cô CHƯA gửi thì phụ huynh chưa thấy — cô chủ động gửi.
+  const sent = invoices
+    .filter((i) => i.status === "SENT")
+    .map((i) => ({ ...displayStateOf(i, ledger, settings), id: i.id, code: i.code, sessionCount: i.sessionCount, amount: i.amount, issuedAt: i.issuedAt.toISOString(), token: i.publicToken }));
+  const pay = invoiceToPay(sent.map((i) => ({ ...i, claimed: i.state === "CLAIMED" })));
   return {
     balance: ledger?.balance ?? 0,
-    // Phiếu cô CHƯA gửi thì phụ huynh chưa thấy — cô chủ động gửi kèm lời nhắn.
-    invoices: invoices
-      .filter((i) => i.status === "SENT")
-      .map((i) => ({ ...displayStateOf(i, ledger, settings), id: i.id, code: i.code, sessionCount: i.sessionCount, amount: i.amount, issuedAt: i.issuedAt.toISOString(), token: i.publicToken })),
+    invoices: sent,
+    /** Khoản phụ huynh cần đóng — MỘT phiếu (mới nhất), số tiền đã gồm nợ các phiếu cũ trong `mergedIds`. */
+    toPay: pay
+      ? { id: pay.invoice.id, code: pay.invoice.code, amount: pay.amount, waitingConfirm: pay.waitingConfirm, mergedIds: pay.merged.map((m) => m.id) }
+      : null,
     payments: payments.map((p) => ({ ...p, paidAt: p.paidAt.toISOString() })),
   };
 }

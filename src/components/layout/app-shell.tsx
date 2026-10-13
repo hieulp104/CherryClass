@@ -29,6 +29,7 @@ import { LogoutForm } from "@/components/layout/logout-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { StudentAvatar } from "@/components/ui/avatar";
 import { useStoredValue } from "@/lib/use-external";
+import { PingBadge } from "@/components/ui/feedback";
 import { Sheet } from "@/components/ui/sheet";
 import {
   listNotificationsAction,
@@ -38,7 +39,7 @@ import {
 import { useStudentSearch } from "@/modules/students/use-student-search";
 import { cn, formatRelativeTime } from "@/lib/utils";
 
-type NavItem = { href: string; label: string; icon: LucideIcon };
+export type NavItem = { href: string; label: string; icon: LucideIcon; /** Số việc cần làm — chấm đỏ cạnh mục. */ badge?: { count: number; label: string } };
 
 const NAV: NavItem[] = [
   { href: "/hom-nay", label: "Tổng quan", icon: Home },
@@ -191,7 +192,7 @@ export function AppShell({
             {unread > 0 && <Dot count={unread} />}
           </IconButton>
           <ThemeToggle className="text-foreground" />
-          <UserMenu displayName={displayName} />
+          <UserMenu displayName={displayName} settingsHref="/cai-dat" />
         </header>
 
         {/* Thanh trên điện thoại */}
@@ -260,7 +261,7 @@ export function AppShell({
 }
 
 /** Mục thanh bên. Mục đang mở: nền trắng nổi + vạch cherry bên trái, trượt theo khi đổi trang. */
-function SideLink({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
+export function SideLink({ item, active, collapsed }: { item: NavItem; active: boolean; collapsed: boolean }) {
   return (
     <Link
       href={item.href}
@@ -286,6 +287,7 @@ function SideLink({ item, active, collapsed }: { item: NavItem; active: boolean;
       )}
       <item.icon className={cn("relative size-5 transition-transform duration-200", !active && "group-hover:scale-110")} />
       {!collapsed && <span className="relative">{item.label}</span>}
+      {item.badge && <PingBadge count={item.badge.count} label={item.badge.label} className={collapsed ? "absolute -right-0.5 -top-0.5" : "relative ml-auto"} />}
     </Link>
   );
 }
@@ -351,7 +353,18 @@ function TabLink({ item, active }: { item: NavItem; active: boolean }) {
 }
 
 /** Ô tài khoản ở thanh trên: avatar + tên + vai trò, bấm mở menu nhỏ. */
-function UserMenu({ displayName }: { displayName: string }) {
+export function UserMenu({
+  displayName,
+  roleLabel = "Giáo viên",
+  hue = 345,
+  settingsHref,
+}: {
+  displayName: string;
+  roleLabel?: string;
+  hue?: number;
+  /** Có thì thêm mục "Cài đặt" vào menu (chỉ cô giáo). */
+  settingsHref?: string;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -378,10 +391,10 @@ function UserMenu({ displayName }: { displayName: string }) {
         aria-expanded={open}
         className="flex items-center gap-3 rounded-full py-1 pl-1 pr-3 transition hover:bg-surface-subtle"
       >
-        <StudentAvatar name={displayName} hue={345} size={38} />
+        <StudentAvatar name={displayName} hue={hue} size={38} />
         <span className="text-left leading-tight">
           <span className="block max-w-40 truncate text-sm font-bold">{displayName}</span>
-          <span className="block text-caption text-muted">Giáo viên</span>
+          <span className="block text-caption text-muted">{roleLabel}</span>
         </span>
         <ChevronDown className={cn("size-4 text-muted transition-transform", open && "rotate-180")} />
       </button>
@@ -395,14 +408,16 @@ function UserMenu({ displayName }: { displayName: string }) {
             transition={{ duration: 0.15 }}
             className="absolute right-0 top-full mt-2 w-56 origin-top-right rounded-card border border-line bg-surface p-1.5 shadow-pop"
           >
-            <Link
-              href="/cai-dat"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-surface-subtle"
-            >
-              <Settings className="size-4 text-muted" /> Cài đặt
-            </Link>
+            {settingsHref && (
+              <Link
+                href={settingsHref}
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-3 rounded-control px-3 py-2.5 text-sm font-semibold hover:bg-surface-subtle"
+              >
+                <Settings className="size-4 text-muted" /> Cài đặt
+              </Link>
+            )}
             <Link
               href="/doi-mat-khau"
               role="menuitem"

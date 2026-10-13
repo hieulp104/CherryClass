@@ -157,7 +157,14 @@ export function StudentNotebookView({
               </span>
             </div>
             {cycle.dates.length > 0 && (
-              <p className="mt-2 text-caption text-muted">Đã học: {cycle.dates.map(shortDate).join(", ")}</p>
+              <p className="mt-2 text-caption text-muted">Buổi chưa vào phiếu: {groupDates(cycle.dates)}</p>
+            )}
+            {cycle.shiftPosition !== null && (
+              <p className="mt-2 text-sm text-muted">
+                {student.shift?.name} đang ở buổi <b className="tabular-nums text-foreground">{cycle.shiftPosition}/{cycle.length}</b> của chu kỳ. Phiếu
+                của em ra cùng lúc với cả ca, khi ca học xong buổi thứ {cycle.length}
+                {cycle.count < cycle.shiftPosition ? " — em vào sau nên phiếu đầu chỉ tính những buổi em đã học." : "."}
+              </p>
             )}
           </div>
         </Card>
@@ -249,7 +256,7 @@ export function StudentNotebookView({
           <SectionTitle>Phiếu thu</SectionTitle>
           {data.invoices.length === 0 ? (
             <Card variant="outline" className="p-5 text-center text-sm text-muted">
-              Chưa có phiếu nào — đủ {cycle.length} buổi là em tự tạo ạ.
+              Chưa có phiếu nào — ca học xong buổi thứ {cycle.length} của chu kỳ là em tự tạo ạ.
             </Card>
           ) : (
             <Card className="divide-y divide-line">
@@ -379,7 +386,17 @@ export function StudentNotebookView({
         />
       </Sheet>
       <StatusSheet open={statusOpen} onClose={() => setStatusOpen(false)} studentId={student.id} current={student.status} />
-      <CounterSheet open={counterOpen} onClose={() => setCounterOpen(false)} studentId={student.id} onIssued={() => setConfetti((n) => n + 1)} />
+      <CounterSheet
+        key={counterOpen ? "mo" : "dong"}
+        open={counterOpen}
+        onClose={() => setCounterOpen(false)}
+        studentId={student.id}
+        onIssued={() => setConfetti((n) => n + 1)}
+        count={cycle.count}
+        cycleLength={cycle.length}
+        unitPrice={data.unitPrice}
+        shift={student.shift && cycle.shiftPosition !== null ? { name: student.shift.name, position: cycle.shiftPosition } : null}
+      />
       <MonthlyReportSheet open={reportOpen} onClose={() => setReportOpen(false)} studentId={student.id} />
       <RecordPaymentSheet
         open={payOpen}
@@ -521,7 +538,35 @@ function StatusSheet({ open, onClose, studentId, current }: { open: boolean; onC
   );
 }
 
-function CounterSheet({ open, onClose, studentId, onIssued }: { open: boolean; onClose: () => void; studentId: string; onIssued: () => void }) {
+const COUNTER_REASONS = {
+  add: ["Buổi đã học trước khi dùng app", "Học bù chưa ghi điểm danh", "Buổi học thêm ngoài lịch"],
+  sub: ["Điểm danh nhầm", "Cô cho nghỉ, không tính buổi này", "Tính trùng buổi học bù"],
+} as const;
+
+/**
+ * Cộng / trừ tay bộ đếm, có XEM TRƯỚC ngay khi chọn số: đang có mấy buổi, sau khi sửa là mấy buổi,
+ * có ra phiếu ngay không. Cộng tay đủ chu kỳ thì ra phiếu ngay (không chờ ca khép kỳ).
+ */
+function CounterSheet({
+  open,
+  onClose,
+  studentId,
+  onIssued,
+  count,
+  cycleLength,
+  unitPrice,
+  shift,
+}: {
+  open: boolean;
+  onClose: () => void;
+  studentId: string;
+  onIssued: () => void;
+  /** Số buổi tính tiền chưa vào phiếu hiện tại. */
+  count: number;
+  cycleLength: number;
+  unitPrice: number;
+  shift: { name: string; position: number } | null;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [dir, setDir] = useState<"add" | "sub">("add");
@@ -530,61 +575,187 @@ function CounterSheet({ open, onClose, studentId, onIssued }: { open: boolean; o
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+
+  const max = dir === "add" ? 30 : count;
+  const amount = Math.min(n, Math.max(max, 0));
+  const after = dir === "add" ? count + amount : count - amount;
+  // Cộng tay: đủ chu kỳ thì ra phiếu ngay theo từng chu kỳ đủ; phần dư chờ.
+  const invoices = dir === "add" && after >= cycleLength ? Math.floor(after / cycleLength) : 0;
+  const left = after - invoices * cycleLength;
+  const reasonOk = reason.trim().length >= 3;
+  const canSubmit = amount > 0 && reasonOk;
+
+  const changeDir = (d: "add" | "sub") => {
+    setDir(d);
+    setN((v) => (d === "sub" ? Math.min(v, Math.max(count, 1)) : v));
+    setReason("");
+  };
+
   const submit = () =>
     start(async () => {
       setError(null);
-      const res = await adjustCounterAction({ studentId, delta: dir === "add" ? n : -n, date, reason });
+      const res = await adjustCounterAction({ studentId, delta: dir === "add" ? amount : -amount, date, reason });
       if (!res.ok) return setError(res.message);
       if (res.data.issued.length) {
         onIssued();
-        toast.success(`Đủ chu kỳ — đã tạo phiếu ${res.data.issued.map((i) => i.code).join(", ")} 🍒`);
-      } else toast.success("Đã sửa bộ đếm");
-      setReason("");
+        toast.success(`Đủ ${cycleLength} buổi — đã tạo phiếu ${res.data.issued.map((i) => i.code).join(", ")} 🍒`);
+      } else {
+        toast.success(dir === "add" ? `Đã cộng ${amount} buổi · giờ có ${after} buổi` : `Đã trừ ${amount} buổi · còn ${after} buổi`);
+      }
       onClose();
       router.refresh();
     });
+
   return (
-    <Sheet open={open} onClose={onClose} title="Sửa bộ đếm buổi" description="Lưu lại kèm lý do, xem được trong lịch sử" size="sm">
+    <Sheet open={open} onClose={onClose} title="Sửa bộ đếm buổi" description="Mỗi lần sửa được lưu kèm lý do" size="sm">
       <div className="space-y-4 pb-2">
+        <p className="text-sm text-muted">
+          Em đang có <b className="tabular-nums text-foreground">{count} buổi</b> chưa vào phiếu
+          {shift && (
+            <>
+              {" "}
+              · {shift.name} đang ở buổi{" "}
+              <b className="tabular-nums text-foreground">
+                {shift.position}/{cycleLength}
+              </b>
+            </>
+          )}
+          .
+        </p>
+
         <Segmented
           layoutId="counter-dir"
           value={dir}
-          onChange={setDir}
+          onChange={changeDir}
+          label="Cộng hay trừ buổi"
           options={[
             { value: "add", label: "Cộng buổi" },
             { value: "sub", label: "Trừ buổi" },
           ]}
         />
-        <div className="flex items-center justify-center gap-5">
-          <Button variant="outline" size="icon" onClick={() => setN((v) => Math.max(1, v - 1))} aria-label="Bớt">
-            <Minus className="size-5" />
-          </Button>
-          <motion.span key={n} initial={{ scale: 1.3 }} animate={{ scale: 1 }} className="w-16 text-center text-4xl font-extrabold tabular">
-            {n}
-          </motion.span>
-          <Button variant="outline" size="icon" onClick={() => setN((v) => Math.min(30, v + 1))} aria-label="Thêm">
-            <Plus className="size-5" />
-          </Button>
-        </div>
-        {dir === "add" && (
-          <Field label="Ngày ghi nhận">
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </Field>
+
+        {dir === "sub" && count === 0 ? (
+          <Notice tone="muted">Em chưa có buổi nào chưa vào phiếu nên không trừ được. Buổi đã vào phiếu thì cô sửa trong phiếu nhé.</Notice>
+        ) : (
+          <>
+            {/* Chọn số buổi */}
+            <div className="flex items-center justify-center gap-4">
+              <Button variant="outline" size="icon" onClick={() => setN(Math.max(1, amount - 1))} disabled={amount <= 1} aria-label="Bớt một buổi">
+                <Minus className="size-5" />
+              </Button>
+              <div className="w-24 text-center">
+                <motion.p key={`${dir}${amount}`} initial={{ scale: 1.25 }} animate={{ scale: 1 }} className="text-4xl font-extrabold tabular-nums">
+                  {dir === "add" ? "+" : "−"}
+                  {amount}
+                </motion.p>
+                <p className="text-caption text-muted">buổi</p>
+              </div>
+              <Button variant="outline" size="icon" onClick={() => setN(Math.min(max, amount + 1))} disabled={amount >= max} aria-label="Thêm một buổi">
+                <Plus className="size-5" />
+              </Button>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="Chọn nhanh số buổi">
+              {[1, 2, 5, 10]
+                .filter((q) => q <= max)
+                .map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => setN(q)}
+                    aria-pressed={amount === q}
+                    className={cn(
+                      "min-h-9 rounded-full border px-3.5 text-sm font-semibold tabular-nums transition active:scale-95",
+                      amount === q ? "border-primary bg-primary-soft text-primary-deep" : "border-line text-muted hover:border-line-strong hover:text-foreground",
+                    )}
+                  >
+                    {dir === "add" ? "+" : "−"}
+                    {q}
+                  </button>
+                ))}
+            </div>
+
+            {/* Xem trước kết quả — đổi ngay khi cô chọn số */}
+            <div className="rounded-card border border-line bg-surface-subtle p-4" aria-live="polite">
+              <p className="flex flex-wrap items-baseline gap-x-2 text-lg font-bold tabular-nums">
+                <span className="text-muted">{count}</span>
+                <span className="text-muted">{dir === "add" ? "+" : "−"}</span>
+                <span className={dir === "add" ? "text-primary" : "text-overdue"}>{amount}</span>
+                <span className="text-muted">=</span>
+                <span>{after} buổi</span>
+              </p>
+              <CherryProgress
+                className="mt-2"
+                count={Math.min(dir === "add" ? count : after, cycleLength)}
+                pending={dir === "add" ? Math.max(0, Math.min(after, cycleLength) - count) : 0}
+                cycle={cycleLength}
+                size={20}
+                glow={invoices > 0}
+              />
+              <p className="mt-2 text-sm">
+                {invoices > 0 ? (
+                  <>
+                    <b className="text-primary-deep">
+                      Đủ {cycleLength} buổi — ra ngay {invoices} phiếu
+                    </b>{" "}
+                    ({cycleLength} buổi × {formatVnd(unitPrice)}, chưa trừ giảm giá). {left > 0 ? `Còn ${left} buổi chờ kỳ sau.` : "Bộ đếm về 0."}
+                  </>
+                ) : dir === "add" ? (
+                  <>
+                    Chưa đủ {cycleLength} buổi — <b>còn thiếu {cycleLength - after} buổi</b>.{" "}
+                    {shift ? `Các buổi này vào phiếu khi ${shift.name} học xong buổi thứ ${cycleLength}.` : "Đủ chu kỳ là app tự tạo phiếu."}
+                  </>
+                ) : (
+                  <>Trừ {amount} buổi gần nhất chưa vào phiếu. Các buổi bị trừ không tính tiền nữa.</>
+                )}
+              </p>
+            </div>
+
+            {dir === "add" && (
+              <Field label="Ngày ghi nhận" hint="Ngày các buổi này được tính là đã học.">
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              </Field>
+            )}
+
+            <Field label="Lý do" hint={reasonOk ? undefined : "Bắt buộc — chọn nhanh bên dưới hoặc tự gõ."}>
+              <Textarea
+                rows={2}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder={dir === "add" ? "vd: Các buổi đã học trước khi dùng app" : "vd: Tính nhầm buổi học bù"}
+              />
+            </Field>
+            <div className="-mt-2 flex flex-wrap gap-2">
+              {COUNTER_REASONS[dir].map((r) => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setReason(r)}
+                  aria-pressed={reason === r}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-sm transition active:scale-95",
+                    reason === r ? "border-primary bg-primary-soft text-primary-deep" : "border-line text-muted hover:text-foreground",
+                  )}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </>
         )}
-        <Field label="Lý do (bắt buộc)">
-          <Textarea
-            rows={2}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder={dir === "add" ? "vd: Các buổi đã học trước khi dùng app" : "vd: Tính nhầm buổi học bù"}
-          />
-        </Field>
-        {dir === "sub" && <Notice tone="amber">Trừ các buổi GẦN NHẤT chưa vào phiếu. Buổi đã vào phiếu thì cô sửa trong phiếu nhé.</Notice>}
+
         {error && <Notice tone="overdue">{error}</Notice>}
-        <Button size="lg" block loading={pending} disabled={reason.trim().length < 3} onClick={submit}>
-          {dir === "add" ? `Cộng ${n} buổi` : `Trừ ${n} buổi`}
+        <Button size="lg" block loading={pending} disabled={!canSubmit} onClick={submit} variant={dir === "sub" ? "danger" : "primary"}>
+          {dir === "add" ? `Cộng ${amount} buổi · thành ${after} buổi` : `Trừ ${amount} buổi · còn ${after} buổi`}
         </Button>
+        {!reasonOk && amount > 0 && <p className="-mt-2 text-center text-caption text-muted">Ghi lý do để lưu.</p>}
       </div>
     </Sheet>
   );
+}
+
+/** "13/10 ×8, 15/10" — gộp các buổi cùng ngày (vd 8 buổi cộng tay một lần) cho gọn. */
+function groupDates(dates: string[]) {
+  const counts = new Map<string, number>();
+  for (const d of dates) counts.set(d, (counts.get(d) ?? 0) + 1);
+  return [...counts].map(([d, n]) => (n > 1 ? `${shortDate(d)} ×${n}` : shortDate(d))).join(", ");
 }

@@ -3,7 +3,7 @@
  *   3 lớp · 10 ca · 150 học sinh tên tiếng Việt · ~2 tháng điểm danh (08/08 → hôm qua)
  *   phiếu thu ở đủ trạng thái · thu tiền · chi phí.
  *
- * Phiếu thu được tạo bằng CHÍNH hàm issueDueInvoices của app (không tính tay ở đây),
+ * Phiếu thu được tạo bằng CHÍNH hàm closeShiftCycle của app — như khi cô bấm "Xong buổi" —
  * nên số liệu mẫu đi qua đúng lõi tính tiền đã có unit test.
  */
 import "dotenv/config";
@@ -12,7 +12,7 @@ import bcrypt from "bcryptjs";
 
 import type { Prisma } from "../src/generated/prisma/client";
 import { DEFAULT_BILLING_SETTINGS, effectiveUnitPrice, isBillable } from "../src/modules/billing/billing.core";
-import { issueDueInvoices } from "../src/modules/billing/billing.service";
+import { closeShiftCycle } from "../src/modules/billing/billing.service";
 import { ensureSessions } from "../src/modules/classes/classes.service";
 import { DEFAULT_TEMPLATES } from "../src/modules/messages/messages.templates";
 import { DEFAULT_SETTINGS, saveSetting } from "../src/modules/settings/settings.service";
@@ -400,12 +400,11 @@ async function main() {
       data: { status: "COMPLETED", completedAt: at(date, session.endTime) },
     });
 
-    for (const r of rows) {
-      const issued = await issueDueInvoices(prisma as unknown as Prisma.TransactionClient, r.studentId, settings, teacher.id);
-      for (const inv of issued) {
-        invoiceCount += 1;
-        await prisma.invoice.update({ where: { id: inv.id }, data: { issuedAt: at(date, session.endTime) } });
-      }
+    // Giống "Xong buổi" thật: ca học xong đủ số buổi → khép kỳ, mọi em của ca có phiếu cùng lúc.
+    const issued = await closeShiftCycle(prisma as unknown as Prisma.TransactionClient, session.shiftId, settings, teacher.id);
+    for (const inv of issued) {
+      invoiceCount += 1;
+      await prisma.invoice.update({ where: { id: inv.id }, data: { issuedAt: at(date, session.endTime) } });
     }
   }
 
@@ -509,7 +508,7 @@ async function main() {
     prisma.payment.count(),
   ]);
   console.log(
-    `✅ Xong trong ${((Date.now() - t0) / 1000).toFixed(1)}s: ${nStudents} học sinh · ${nAtt} lượt điểm danh · ${nInv} phiếu (${invoiceCount} tạo qua issueDueInvoices) · ${nPay} khoản thu · ${expenses.length} khoản chi`,
+    `✅ Xong trong ${((Date.now() - t0) / 1000).toFixed(1)}s: ${nStudents} học sinh · ${nAtt} lượt điểm danh · ${nInv} phiếu (${invoiceCount} tạo qua closeShiftCycle) · ${nPay} khoản thu · ${expenses.length} khoản chi`,
   );
   console.log("🍒 Giai đoạn 2: tài khoản, bài tập, bài nộp…");
   const p2 = await seedPhase2(teacher.id, specialIds, { rand, chance, int, pick });

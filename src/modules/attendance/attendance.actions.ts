@@ -6,7 +6,7 @@ import { fail, ok, type ActionResult } from "@/common/filters/error";
 import { can } from "@/common/permissions/permissions";
 import { getCurrentUser } from "@/modules/auth/auth.service";
 import { effectiveUnitPrice, isBillable } from "@/modules/billing/billing.core";
-import { issueDueInvoices } from "@/modules/billing/billing.service";
+import { closeShiftCycle, issueDueInvoices } from "@/modules/billing/billing.service";
 import { finalizeSessionSchema } from "@/modules/attendance/attendance.schema";
 import { getSettings } from "@/modules/settings/settings.service";
 import { fromDbDate, shortDate } from "@/lib/dates";
@@ -18,7 +18,7 @@ export type FinalizeResult = {
   present: number;
   excused: number;
   unexcused: number;
-  /** Em vừa đủ chu kỳ → phiếu mới được tạo. */
+  /** Ca vừa khép kỳ (hoặc phiếu chưa gửi được tạo lại) → các phiếu mới. */
   completed: { studentId: string; name: string; invoiceId: string; code: string; amount: number }[];
 };
 
@@ -79,7 +79,7 @@ export async function finalizeSessionAction(input: unknown): Promise<ActionResul
 
         const conflicts: string[] = [];
         const rebuild = new Set<string>(); // phiếu chưa gửi cần tạo lại
-        const touched = new Set<string>();
+        const rebuilt = new Set<string>(); // em vừa bị gỡ phiếu chưa gửi → tạo lại ngay
 
         for (const e of entries) {
           const student = studentMap.get(e.studentId);
@@ -100,7 +100,6 @@ export async function finalizeSessionAction(input: unknown): Promise<ActionResul
                 unitPrice: effectiveUnitPrice(student.unitPrice, settings.billing),
               },
             });
-            touched.add(e.studentId);
             continue;
           }
 
@@ -123,7 +122,6 @@ export async function finalizeSessionAction(input: unknown): Promise<ActionResul
             where: { id: row.id },
             data: { status: e.status, note, billable: isBillable(e.status, settings.billing) },
           });
-          touched.add(e.studentId);
         }
 
         // Em học bù bị gỡ khỏi danh sách → xóa dòng (nếu chưa vào phiếu).
@@ -139,7 +137,6 @@ export async function finalizeSessionAction(input: unknown): Promise<ActionResul
             }
             rebuild.add(inv.id);
           }
-          touched.add(row.studentId);
         }
 
         if (conflicts.length > 0) {
@@ -160,7 +157,7 @@ export async function finalizeSessionAction(input: unknown): Promise<ActionResul
             before: { code: inv.code, amount: inv.amount, attendanceIds: inv.lines.map((l) => l.attendanceId) },
             reason: "Sửa điểm danh của phiếu chưa gửi — tạo lại phiếu",
           });
-          touched.add(inv.studentId);
+          rebuilt.add(inv.studentId);
         }
 
         // Xóa dòng học bù bị gỡ SAU khi đã gỡ phiếu chứa nó.
@@ -175,14 +172,22 @@ export async function finalizeSessionAction(input: unknown): Promise<ActionResul
           data: { status: "COMPLETED", completedAt: session.completedAt ?? new Date() },
         });
 
-        const completed: FinalizeResult["completed"] = [];
-        for (const studentId of touched) {
-          const issued = await issueDueInvoices(tx, studentId, settings.billing, user.id);
-          const name = studentMap.get(studentId)?.fullName ?? "";
-          for (const inv of issued) {
-            completed.push({ studentId, name: givenName(name), invoiceId: inv.id, code: inv.code, amount: inv.amount });
-          }
-        }
+        // Phiếu ra theo nhịp CA: ca vừa học xong đủ số buổi → khép kỳ, mọi em của ca có phiếu cùng lúc.
+        // Ngoài ra chỉ tạo lại phiếu vừa gỡ (sửa điểm danh của phiếu chưa gửi).
+        const issued = await closeShiftCycle(tx, session.shiftId, settings.billing, user.id);
+        for (const studentId of rebuilt) issued.push(...(await issueDueInvoices(tx, studentId, settings.billing, user.id)));
+        const names = new Map(
+          (await tx.student.findMany({ where: { id: { in: issued.map((i) => i.studentId) } }, select: { id: true, fullName: true } })).map(
+            (s) => [s.id, s.fullName],
+          ),
+        );
+        const completed: FinalizeResult["completed"] = issued.map((inv) => ({
+          studentId: inv.studentId,
+          name: givenName(names.get(inv.studentId) ?? ""),
+          invoiceId: inv.id,
+          code: inv.code,
+          amount: inv.amount,
+        }));
 
         const final = await tx.attendance.groupBy({ by: ["status"], where: { sessionId }, _count: { _all: true } });
         const count = (s: string) => final.find((f) => f.status === s)?._count._all ?? 0;

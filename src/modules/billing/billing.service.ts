@@ -8,8 +8,10 @@ import {
   firstChildId,
   invoiceDisplayState,
   invoiceDue,
-  planCycles,
+  planClassInvoices,
   reminderTone,
+  sessionKey,
+  shiftCycle,
   type BillingSettings,
   type InvoiceAllocation,
   type InvoiceDisplayState,
@@ -77,15 +79,108 @@ async function discountFor(tx: Tx, studentId: string) {
 
 export type IssuedInvoice = { id: string; code: string; studentId: string; amount: number };
 
+// ─────────────────── Nhịp chu kỳ theo ca ───────────────────
+
+/** Số buổi mỗi chu kỳ của một lớp: riêng của lớp, không có thì theo Cài đặt chung. */
+export function cycleLengthOf(classroom: { cycleLength: number | null } | null | undefined, settings: BillingSettings): number {
+  return classroom?.cycleLength ?? settings.cycleLength;
+}
+
+/** Nhịp của một em: ca chính (mốc khép kỳ) + số buổi mỗi chu kỳ. Không thuộc ca nào → `mark` undefined (nhịp riêng). */
+async function rhythmOf(tx: Tx, studentId: string, settings: BillingSettings) {
+  const s = await tx.student.findUniqueOrThrow({
+    where: { id: studentId },
+    select: {
+      classroom: { select: { cycleLength: true } },
+      shift: { select: { cycleMark: true, classroom: { select: { cycleLength: true } } } },
+    },
+  });
+  if (!s.shift) return { mark: undefined, cycleLength: cycleLengthOf(s.classroom, settings) };
+  return { mark: s.shift.cycleMark, cycleLength: cycleLengthOf(s.shift.classroom, settings) };
+}
+
+/** Các buổi đã xong của ca, dạng khóa thứ tự. */
+async function completedKeys(tx: Tx | typeof prisma, shiftId: string) {
+  const rows = await tx.session.findMany({
+    where: { shiftId, status: "COMPLETED" },
+    select: { date: true, startTime: true },
+  });
+  return rows.map((r) => sessionKey(fromDbDate(r.date), r.startTime));
+}
+
+/** Vị trí hiện tại của nhiều ca (chỉ đọc) — để hiện "buổi 7/10" ở chế độ đứng lớp, trang lớp học, sổ tay. */
+export async function shiftCyclePositions(shiftIds: string[]): Promise<Map<string, { position: number; length: number }>> {
+  const out = new Map<string, { position: number; length: number }>();
+  if (shiftIds.length === 0) return out;
+  const [settings, shifts, sessions] = await Promise.all([
+    getSettings(),
+    prisma.shift.findMany({
+      where: { id: { in: shiftIds } },
+      select: { id: true, cycleMark: true, classroom: { select: { cycleLength: true } } },
+    }),
+    prisma.session.findMany({
+      where: { shiftId: { in: shiftIds }, status: "COMPLETED" },
+      select: { shiftId: true, date: true, startTime: true },
+    }),
+  ]);
+  for (const sh of shifts) {
+    const length = cycleLengthOf(sh.classroom, settings.billing);
+    const keys = sessions.filter((s) => s.shiftId === sh.id).map((s) => sessionKey(fromDbDate(s.date), s.startTime));
+    // Chỉ đọc: nếu ca đã qua đủ mà chưa khép (vd vừa đổi số buổi), vị trí vẫn hiện trong khoảng 0..length-1.
+    out.set(sh.id, { position: shiftCycle(keys, sh.cycleMark, length).position, length });
+  }
+  return out;
+}
+
 /**
- * Tạo phiếu cho mọi chu kỳ đã đủ của một em. Gọi sau mỗi lần chốt buổi / sửa bộ đếm.
- * Không bao giờ tạo phiếu thiếu buổi; phần dư chờ chu kỳ sau.
+ * Khép kỳ của một ca nếu đã học xong đủ số buổi sau mốc, rồi ra phiếu cho MỌI em thuộc ca
+ * (em mới vào được phiếu ngắn hơn — chỉ các buổi em đã học). Gọi sau "Xong buổi" và khi cô đổi số buổi.
+ */
+export async function closeShiftCycle(
+  tx: Tx,
+  shiftId: string,
+  settings: BillingSettings,
+  actorId: string | null,
+): Promise<IssuedInvoice[]> {
+  const shift = await tx.shift.findUniqueOrThrow({
+    where: { id: shiftId },
+    select: { cycleMark: true, classroom: { select: { cycleLength: true } } },
+  });
+  const length = cycleLengthOf(shift.classroom, settings);
+  const cycle = shiftCycle(await completedKeys(tx, shiftId), shift.cycleMark, length);
+  if (cycle.closes.length === 0) return [];
+
+  await tx.shift.update({ where: { id: shiftId }, data: { cycleMark: cycle.mark } });
+  await writeAuditLog(tx, {
+    actorId,
+    action: "SHIFT_CYCLE_CLOSE",
+    entity: "Shift",
+    entityId: shiftId,
+    before: { cycleMark: shift.cycleMark },
+    after: { cycleMark: cycle.mark, cycleLength: length, closes: cycle.closes },
+  });
+
+  const members = await tx.student.findMany({
+    where: { shiftId, deletedAt: null, attendances: { some: { billable: true, invoiceLine: { is: null } } } },
+    select: { id: true },
+  });
+  const issued: IssuedInvoice[] = [];
+  for (const m of members) issued.push(...(await issueDueInvoices(tx, m.id, settings, actorId)));
+  return issued;
+}
+
+/**
+ * Tạo phiếu cho các buổi đã đến lúc tính tiền của một em, theo nhịp ca của em (`planClassInvoices`):
+ * buổi thuộc kỳ ca đã khép → một phiếu; buổi sau mốc chờ ca khép kỳ.
+ * `catchUp` (cô cộng tay buổi cũ): phần chờ đủ chu kỳ thì ra phiếu ngay.
+ * Gọi lại bao nhiêu lần cũng không tạo trùng — buổi đã vào phiếu không được lấy lại.
  */
 export async function issueDueInvoices(
   tx: Tx,
   studentId: string,
   settings: BillingSettings,
   actorId: string | null,
+  opts: { catchUp?: boolean } = {},
 ): Promise<IssuedInvoice[]> {
   const uninvoiced = await tx.attendance.findMany({
     where: { studentId, billable: true, invoiceLine: { is: null } },
@@ -97,18 +192,21 @@ export async function issueDueInvoices(
       source: true,
       reason: true,
       isMakeup: true,
-      session: { select: { shift: { select: { name: true, classroom: { select: { name: true } } } } } },
+      session: { select: { startTime: true, shift: { select: { name: true, classroom: { select: { name: true } } } } } },
     },
   });
+  if (uninvoiced.length === 0) return [];
   const items = uninvoiced.map((a) => ({
     id: a.id,
     date: fromDbDate(a.date),
+    key: sessionKey(fromDbDate(a.date), a.session?.startTime ?? "00:00"),
     unitPrice: a.unitPrice,
     label: a.session
       ? `${a.session.shift.classroom.name} · ${a.session.shift.name}${a.isMakeup ? " (học bù)" : ""}`
       : `Cộng tay${a.reason ? `: ${a.reason}` : ""}`,
   }));
-  const { cycles } = planCycles(items, settings.cycleLength);
+  const rhythm = await rhythmOf(tx, studentId, settings);
+  const { invoices: cycles } = planClassInvoices(items, { ...rhythm, catchUp: opts.catchUp });
   if (cycles.length === 0) return [];
 
   const { discount, isFirstChild } = await discountFor(tx, studentId);
@@ -298,6 +396,7 @@ export async function listInvoices() {
           parentPhone: true,
           status: true,
           classroom: { select: { name: true } },
+          _count: { select: { parentLinks: true } },
         },
       },
     },
@@ -323,6 +422,8 @@ export async function listInvoices() {
       issuedAt: inv.issuedAt.toISOString(),
       sentAt: inv.sentAt?.toISOString() ?? null,
       student: { ...inv.student, classroom: inv.student.classroom.name },
+      /** Phụ huynh đã có tài khoản app — gửi phiếu là phiếu hiện ngay ở mục Học phí. */
+      parentAccount: inv.student._count.parentLinks > 0,
       ...s,
       tone: reminderTone(s.daysSinceSent ?? 0, inv.student.hardship, settings.reminders),
       publicToken: inv.publicToken,
@@ -355,6 +456,7 @@ export async function getInvoiceDetail(id: string) {
           parentPhone: true,
           classroom: { select: { name: true } },
           siblingGroup: { select: { label: true } },
+          _count: { select: { parentLinks: true } },
         },
       },
     },
@@ -378,6 +480,7 @@ export async function getInvoiceDetail(id: string) {
     payments,
     settings,
     publicUrl: `${process.env.APP_URL ?? ""}/p/${invoice.publicToken}`,
+    parentAccount: invoice.student._count.parentLinks > 0,
   };
 }
 

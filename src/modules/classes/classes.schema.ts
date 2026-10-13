@@ -7,6 +7,11 @@ export const classroomSchema = z.object({
   name: z.string().trim().min(1, "Cô đặt tên lớp giúp em nhé").max(60),
   grade: z.coerce.number().int().min(1).max(12),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#E11D48"),
+  /** Số buổi mỗi chu kỳ riêng của lớp. Bỏ trống = theo Cài đặt chung. */
+  cycleLength: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? null : Number(v)),
+    z.number().int("Số buổi là số nguyên").min(1, "Chu kỳ ít nhất 1 buổi").max(60, "Chu kỳ tối đa 60 buổi").nullable(),
+  ),
 });
 
 export const scheduleSchema = z

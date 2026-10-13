@@ -33,6 +33,8 @@ import { adjustInvoiceAction, voidInvoiceAction, waiveLineAction } from "@/modul
 import type { getInvoiceDetail } from "@/modules/billing/billing.service";
 import { ConfirmClaimSheet, RecordPaymentSheet } from "@/modules/billing/components/payment-sheets";
 import { MessageComposer } from "@/modules/messages/components/message-composer";
+import { SendInvoiceSheet } from "@/modules/billing/components/send-invoice-sheet";
+import { SimulateTransferButton } from "@/modules/billing/components/bank-panel";
 import type { TemplateItem } from "@/modules/messages/messages.service";
 import { parentAddress } from "@/modules/messages/messages.templates";
 import { fromDbDate, shortDate } from "@/lib/dates";
@@ -42,11 +44,14 @@ type Detail = NonNullable<Awaited<ReturnType<typeof getInvoiceDetail>>>;
 // Sau JSON.parse ở page, Date thành chuỗi — dùng kiểu "lỏng" cho phần ngày.
 type Loose<T> = T extends Date ? string : T extends (infer U)[] ? Loose<U>[] : T extends object ? { [K in keyof T]: Loose<T[K]> } : T;
 
-export function InvoiceDetailView({ detail, templates }: { detail: Loose<Detail>; templates: TemplateItem[] }) {
+export function InvoiceDetailView({ detail, templates, devTools = false }: { detail: Loose<Detail>; templates: TemplateItem[]; devTools?: boolean }) {
   const router = useRouter();
   const toast = useToast();
   const { invoice, settings } = detail;
   const [compose, setCompose] = useState(false);
+  const [sending, setSending] = useState(false);
+  // Hộp soạn tin có tự đánh dấu "đã gửi" khi sao chép không (chỉ khi gửi phiếu qua Zalo).
+  const [zaloMarksSent, setZaloMarksSent] = useState(false);
   const [record, setRecord] = useState(false);
   const [adjust, setAdjust] = useState(false);
   const [voiding, setVoiding] = useState(false);
@@ -186,7 +191,7 @@ export function InvoiceDetailView({ detail, templates }: { detail: Loose<Detail>
                 </Button>
               )}
               {detail.state !== "PAID" && (
-                <Button size="lg" className="col-span-2" variant={pendingClaims.length ? "soft" : "primary"} onClick={() => setCompose(true)}>
+                <Button size="lg" className="col-span-2" variant={pendingClaims.length ? "soft" : "primary"} onClick={() => (invoice.status === "READY" ? setSending(true) : setCompose(true))}>
                   <Send className="size-5" /> {invoice.status === "READY" ? "Gửi phiếu cho phụ huynh" : "Soạn tin nhắc"}
                 </Button>
               )}
@@ -207,6 +212,13 @@ export function InvoiceDetailView({ detail, templates }: { detail: Loose<Detail>
               <Button variant="outline" onClick={copyLink}>
                 <Copy className="size-4" /> Sao chép link
               </Button>
+              {devTools && detail.state !== "PAID" && (
+                <SimulateTransferButton
+                  block
+                  className="col-span-2"
+                  invoice={{ code: invoice.code, totalDue: detail.totalDue, studentName: student.fullName }}
+                />
+              )}
               <Button variant="ghost" className="col-span-2 text-overdue" onClick={() => setVoiding(true)}>
                 <Undo2 className="size-4" /> Hủy & tạo lại phiếu
               </Button>
@@ -251,6 +263,23 @@ export function InvoiceDetailView({ detail, templates }: { detail: Loose<Detail>
       </div>
 
       {/* ───── Sheets ───── */}
+      {sending && (
+        <SendInvoiceSheet
+          open
+          onClose={() => setSending(false)}
+          invoice={{ id: invoice.id, code: invoice.code, sessionCount: invoice.sessionCount, totalDue: detail.totalDue, childName: givenName(student.fullName) }}
+          parentAccount={detail.parentAccount}
+          onSent={() => {
+            setSending(false);
+            router.refresh();
+          }}
+          onZalo={(markSent) => {
+            setZaloMarksSent(markSent);
+            setSending(false);
+            setCompose(true);
+          }}
+        />
+      )}
       {compose && (
         <MessageComposer
           open
@@ -262,7 +291,7 @@ export function InvoiceDetailView({ detail, templates }: { detail: Loose<Detail>
           quietHours={settings.quietHours}
           studentId={student.id}
           invoiceId={invoice.id}
-          markSentOnCopy={invoice.status === "READY"}
+          markSentOnCopy={zaloMarksSent && invoice.status === "READY"}
           onDone={() => router.refresh()}
           vars={{
             tenPhuHuynh: parentAddress(student.parentName),

@@ -331,7 +331,7 @@ nên RLS của Postgres không thêm được nhiều lớp bảo vệ. Thay và
 **Khóa sửa**: buổi đã nằm trong phiếu `SENT` thì không sửa điểm danh trực tiếp được nữa. Muốn đổi phải
 "Sửa phiếu" với lý do bắt buộc → `InvoiceAdjustment` + `AuditLog`. Phiếu còn `READY` (chưa gửi) thì sửa
 điểm danh sẽ tự tạo lại phiếu.
-**Vào muộn**: không cần xử lý riêng — bộ đếm chỉ đếm buổi em thực sự có điểm danh, nên chu kỳ tự bắt đầu từ buổi đầu tiên.
+**Vào muộn** (đổi 13/10/2026): phiếu ra theo nhịp CA — ca học xong N buổi là mọi em có phiếu cùng lúc; em vào giữa kỳ được phiếu đầu ngắn hơn (chỉ các buổi đã học), từ kỳ sau đi chung nhịp với cả ca. Ví dụ 1 dưới đây mô tả cách cũ (mỗi em tự đếm riêng).
 **Đổi đơn giá**: áp dụng cho các buổi **từ lúc đổi trở đi**; phiếu liệt kê đơn giá từng buổi nên phụ huynh thấy rõ.
 **Làm tròn**: số phải đóng luôn làm tròn **xuống** (tiền giảm theo % làm tròn lên) — phụ huynh không bao giờ phải trả thừa vì làm tròn. Làm tròn tới đồng hay tới nghìn: chờ chốt (mục 4, câu 6).
 

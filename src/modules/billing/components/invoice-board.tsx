@@ -15,6 +15,9 @@ import type { InvoiceDisplayState } from "@/modules/billing/billing.core";
 import type { InvoiceListItem } from "@/modules/billing/billing.service";
 import { ConfirmClaimSheet } from "@/modules/billing/components/payment-sheets";
 import { MessageComposer } from "@/modules/messages/components/message-composer";
+import { SendInvoiceSheet } from "@/modules/billing/components/send-invoice-sheet";
+import { SimulateTransferButton, UnmatchedBankPanel } from "@/modules/billing/components/bank-panel";
+import type { UnmatchedBankTransaction } from "@/modules/billing/bank.service";
 import type { TemplateItem } from "@/modules/messages/messages.service";
 import { parentAddress } from "@/modules/messages/messages.templates";
 import { cn, formatVnd, givenName, removeDiacritics } from "@/lib/utils";
@@ -45,6 +48,8 @@ export function InvoiceBoard({
   teacherName,
   quietHours,
   appUrl,
+  bankRows,
+  devTools,
 }: {
   invoices: InvoiceListItem[];
   outstanding: { total: number; students: number };
@@ -53,6 +58,10 @@ export function InvoiceBoard({
   teacherName: string;
   quietHours: { from: string; to: string };
   appUrl: string;
+  /** Tiền về chưa biết của em nào (webhook SePay). */
+  bankRows: UnmatchedBankTransaction[];
+  /** Máy thử: hiện nút "Giả lập tiền về". */
+  devTools: boolean;
 }) {
   const router = useRouter();
   const counts = useMemo(() => {
@@ -64,6 +73,14 @@ export function InvoiceBoard({
   const [tab, setTab] = useState<Tab>(TABS.some((t) => t.value === initialTab) ? (initialTab as Tab) : firstNonEmpty);
   const [q, setQ] = useState("");
   const [composeFor, setComposeFor] = useState<InvoiceListItem | null>(null);
+  const [sendFor, setSendFor] = useState<InvoiceListItem | null>(null);
+  // Hộp soạn tin có tự đánh dấu "đã gửi" khi sao chép không (chỉ khi gửi phiếu qua Zalo).
+  const [zaloMarksSent, setZaloMarksSent] = useState(false);
+  const compose = (inv: InvoiceListItem) => {
+    if (inv.state === "READY") return setSendFor(inv);
+    setZaloMarksSent(false);
+    setComposeFor(inv);
+  };
   const [claimFor, setClaimFor] = useState<InvoiceListItem | null>(null);
   const [confetti, setConfetti] = useState(0);
 
@@ -78,7 +95,11 @@ export function InvoiceBoard({
   return (
     <div>
       <CherryConfetti fire={confetti} />
-      <PageHeader title="Thu tiền" subtitle="Phiếu tự tạo khi em đủ chu kỳ — cô chỉ cần gửi và xác nhận" />
+      <PageHeader
+        title="Thu tiền"
+        subtitle="Phiếu tự tạo khi ca khép chu kỳ — tiền về tài khoản là tự xác nhận"
+        actions={devTools ? <SimulateTransferButton /> : undefined}
+      />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
@@ -97,6 +118,8 @@ export function InvoiceBoard({
           <Wallet className="size-14 -rotate-12 text-white/20" />
         </div>
       </motion.div>
+
+      <UnmatchedBankPanel rows={bankRows} />
 
       <div className="sticky top-14 z-20 -mx-4 mt-5 bg-background/90 px-4 py-2 backdrop-blur lg:top-0">
         <Segmented
@@ -168,14 +191,14 @@ export function InvoiceBoard({
                       <InvoiceAmount inv={inv} className="hidden sm:block" />
                     </Link>
                     <div className="hidden sm:block">
-                      <RowAction inv={inv} onCompose={() => setComposeFor(inv)} onClaim={() => setClaimFor(inv)} />
+                      <RowAction inv={inv} onCompose={() => compose(inv)} onClaim={() => setClaimFor(inv)} />
                     </div>
                     <ChevronRight className="size-5 shrink-0 text-muted sm:hidden" />
                   </div>
                   {/* Điện thoại: số tiền + việc cần làm nằm ở chân thẻ, tên em không bị cắt. */}
                   <div className="mt-3 flex min-h-9 items-center justify-between gap-3 border-t border-line pt-3 sm:hidden">
                     <InvoiceAmount inv={inv} />
-                    <RowAction inv={inv} onCompose={() => setComposeFor(inv)} onClaim={() => setClaimFor(inv)} />
+                    <RowAction inv={inv} onCompose={() => compose(inv)} onClaim={() => setClaimFor(inv)} />
                   </div>
                 </div>
               </motion.li>
@@ -195,7 +218,7 @@ export function InvoiceBoard({
           quietHours={quietHours}
           studentId={composeFor.student.id}
           invoiceId={composeFor.id}
-          markSentOnCopy={composeFor.state === "READY"}
+          markSentOnCopy={zaloMarksSent && composeFor.state === "READY"}
           onDone={() => router.refresh()}
           vars={{
             tenPhuHuynh: parentAddress(composeFor.student.parentName),
@@ -206,6 +229,29 @@ export function InvoiceBoard({
             soTien: formatVnd(composeFor.totalDue),
             link: `${appUrl}/p/${composeFor.publicToken}`,
             tenCo: teacherName,
+          }}
+        />
+      )}
+      {sendFor && (
+        <SendInvoiceSheet
+          open
+          onClose={() => setSendFor(null)}
+          invoice={{
+            id: sendFor.id,
+            code: sendFor.code,
+            sessionCount: sendFor.sessionCount,
+            totalDue: sendFor.totalDue,
+            childName: givenName(sendFor.student.fullName),
+          }}
+          parentAccount={sendFor.parentAccount}
+          onSent={() => {
+            setSendFor(null);
+            router.refresh();
+          }}
+          onZalo={(markSent) => {
+            setZaloMarksSent(markSent);
+            setComposeFor(sendFor);
+            setSendFor(null);
           }}
         />
       )}

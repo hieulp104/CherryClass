@@ -15,14 +15,13 @@ export default async function StudentsPage({
   await requirePagePermission("student.manage");
   const sp = await searchParams;
   const status = (["ACTIVE", "PAUSED", "LEFT"] as const).find((s) => s === sp.trangthai) ?? "ACTIVE";
-  const [{ students, cycleLength }, classrooms] = await Promise.all([
+  const [{ students }, classrooms] = await Promise.all([
     listStudents({ status, classroomId: sp.lop, q: sp.q }),
     listClassrooms(),
   ]);
   return (
     <StudentList
       students={students}
-      cycleLength={cycleLength}
       classrooms={classrooms.map((c) => ({ id: c.id, name: c.name, count: c._count.students }))}
       filter={{ status, classroomId: sp.lop ?? "", q: sp.q ?? "" }}
     />

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { canViewStudent, homeFor, type SessionUser } from "@/common/permissions/permissions";
 import { getCurrentUser } from "@/modules/auth/auth.service";
+import { feesDueByStudent } from "@/modules/portal/portal.service";
 import { prisma } from "@/shared/prisma/prisma.service";
 
 export type PortalContext = {
@@ -9,7 +10,7 @@ export type PortalContext = {
   /** Em đang xem (học sinh: chính em; phụ huynh: con được chọn). */
   studentId: string;
   /** Danh sách con để phụ huynh chuyển qua lại. */
-  children: { id: string; name: string; avatarHue: number; classroom: string }[];
+  children: { id: string; name: string; avatarHue: number; classroom: string; feesDue: number }[];
   base: "/cua-em" | "/phu-huynh";
 };
 
@@ -35,10 +36,11 @@ export async function requirePortal(role: "STUDENT" | "PARENT", requestedChild?:
   });
   if (kids.length === 0) redirect("/login?loi=chua-lien-ket");
   const chosen = kids.find((k) => k.id === requestedChild && canViewStudent(user, k.id)) ?? kids[0];
+  const due = await feesDueByStudent(kids.map((k) => k.id));
   return {
     user,
     studentId: chosen.id,
-    children: kids.map((k) => ({ id: k.id, name: k.fullName, avatarHue: k.avatarHue, classroom: k.classroom.name })),
+    children: kids.map((k) => ({ id: k.id, name: k.fullName, avatarHue: k.avatarHue, classroom: k.classroom.name, feesDue: due.get(k.id) ?? 0 })),
     base: "/phu-huynh",
   };
 }

@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { CalendarCheck2, ChevronRight, ClipboardCheck, Lock, Wallet } from "lucide-react";
+import { CalendarCheck2, CheckCircle2, ChevronRight, ClipboardCheck, Lock, QrCode, Wallet } from "lucide-react";
 
 import { CherryIcon, Mascot } from "@/components/brand/mascot";
 import { Card } from "@/components/ui/card";
-import { EmptyState, InvoiceStateChip } from "@/components/ui/feedback";
+import { Chip, EmptyState, InvoiceStateChip } from "@/components/ui/feedback";
 import { CountUp } from "@/components/ui/fx";
 import { PageHeader, SectionTitle } from "@/components/ui/page";
 import { BADGES, formatScore, selfComparison } from "@/modules/assignments/assignments.core";
@@ -34,8 +34,8 @@ export function GardenView({ progress, isParent, childName }: { progress: Studen
   return (
     <div className="space-y-4">
       <PageHeader title={isParent ? `Vườn cherry của ${childName}` : "Vườn cherry của em"} subtitle="+1 quả mỗi bài nộp đúng hạn · +1 quả mỗi tuần đi học đủ buổi" />
-      <Card className="bg-soft overflow-hidden p-4">
-        <svg viewBox="0 0 320 260" className="w-full" role="img" aria-label={`Cây có ${g.fruits} quả cherry`}>
+      <Card className="bg-soft grid grid-cols-1 items-center gap-2 overflow-hidden p-4 sm:p-6 lg:grid-cols-[1.2fr_1fr]">
+        <svg viewBox="0 0 320 260" className="mx-auto w-full max-w-md" role="img" aria-label={`Cây có ${g.fruits} quả cherry`}>
           <ellipse cx="160" cy="246" rx="120" ry="10" fill="var(--c-leaf)" opacity="0.18" />
           <path d="M150 250 Q148 200 154 170 L166 170 Q172 200 170 250 Z" fill="#92400E" />
           <path d="M158 190 Q130 170 118 150 M162 185 Q192 165 206 146" stroke="#92400E" strokeWidth="7" fill="none" strokeLinecap="round" />
@@ -75,7 +75,9 @@ export function GardenView({ progress, isParent, childName }: { progress: Studen
             );
           })}
         </svg>
-        <div className="mt-2 flex items-center justify-center gap-2">
+        {/* Số quả + tiến độ huy hiệu: dưới cây trên điện thoại, bên phải cây trên máy tính */}
+        <div>
+        <div className="flex items-center justify-center gap-2">
           <CherryIcon size={30} />
           <span className="text-4xl font-extrabold tabular">
             <CountUp value={g.fruits} />
@@ -101,6 +103,7 @@ export function GardenView({ progress, isParent, childName }: { progress: Studen
             </p>
           </div>
         )}
+        </div>
       </Card>
 
       <SectionTitle>Huy hiệu</SectionTitle>
@@ -214,40 +217,136 @@ export function ScoresView({ progress, isParent, childName, frame }: { progress:
 
 // ─────────────── Học phí (phụ huynh) ───────────────
 
-export function FeesView({ fees, childName }: { fees: PortalFees; childName: string }) {
+export function FeesView({ fees, childName, frame }: { fees: PortalFees; childName: string; frame: FrameProps }) {
+  const pay = fees.toPay;
+  const payInv = pay ? fees.invoices.find((i) => i.id === pay.id) : undefined;
+  const merged = new Set(pay?.mergedIds ?? []);
+  const mergedAmount = payInv ? payInv.priorDebt : 0;
+  const rest = fees.invoices.filter((i) => i.id !== pay?.id);
+  const hrefOf = (id: string) => portalHref(frame, `/hoc-phi/${id}`);
+
   return (
     <div className="space-y-4">
       <PageHeader title="Học phí" subtitle={`Của con ${childName}`} />
-      <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }}>
-        <Card variant={fees.balance > 0 ? "hero" : "leaf"} className="relative overflow-hidden p-5">
-          <div className="sparkle-overlay absolute inset-0" />
-          <Wallet className="absolute -right-2 -top-2 size-24 text-white/15" />
-          <p className="relative text-sm font-semibold text-white/85">{fees.balance > 0 ? "Cần đóng" : fees.balance < 0 ? "Đóng dư (trừ vào kỳ sau)" : "Đã đóng đủ"}</p>
-          <p className="relative mt-1 text-[2.25rem] font-extrabold leading-none tabular">
-            <CountUp value={Math.abs(fees.balance)} format={formatVnd} />
-          </p>
-        </Card>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-night relative isolate overflow-hidden rounded-card p-5 text-white shadow-pop ring-1 ring-inset ring-white/10 sm:p-6"
+      >
+        <div className="night-grid absolute inset-0 -z-10" aria-hidden />
+        <Wallet className="absolute -right-2 -top-2 size-24 -rotate-12 text-white/15" aria-hidden />
+        {pay ? (
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-white/70">{pay.waitingConfirm ? "Anh chị đã báo chuyển · chờ cô xác nhận" : "Cần đóng"}</p>
+              <p className="mt-1 text-[2.25rem] font-extrabold leading-none tabular">
+                <CountUp value={pay.amount} format={formatVnd} />
+              </p>
+            </div>
+            {!pay.waitingConfirm && (
+              <Link
+                href={hrefOf(pay.id)}
+                className="relative inline-flex min-h-12 items-center gap-2 rounded-full bg-white px-6 font-bold text-primary-deep shadow-md transition hover:bg-white/90 active:scale-[0.97]"
+              >
+                <QrCode className="size-5" /> Xem mã QR để đóng
+              </Link>
+            )}
+          </div>
+        ) : fees.balance < 0 ? (
+          <>
+            <p className="text-sm font-semibold text-white/70">Đóng dư (tự trừ vào kỳ sau)</p>
+            <p className="mt-1 text-[2.25rem] font-extrabold leading-none tabular">
+              <CountUp value={-fees.balance} format={formatVnd} />
+            </p>
+          </>
+        ) : (
+          <>
+            <p className="flex items-center gap-2 text-sm font-semibold text-white/70">
+              <CheckCircle2 className="size-4 text-leaf" /> Học phí
+            </p>
+            <p className="mt-1 text-[2rem] font-extrabold leading-tight">Đã đóng đủ</p>
+            <p className="mt-1 text-sm text-white/70">Cảm ơn anh chị. Khi con học đủ buổi, cô sẽ gửi phiếu mới.</p>
+          </>
+        )}
       </motion.div>
 
-      <SectionTitle>Phiếu học phí</SectionTitle>
+      {pay && payInv && (
+        <section aria-labelledby="can-dong">
+          <SectionTitle>
+            <span id="can-dong">{pay.waitingConfirm ? "Phiếu đang chờ xác nhận" : "Phiếu cần đóng"}</span>
+          </SectionTitle>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <Link
+              href={hrefOf(payInv.id)}
+              className={cn(
+                "group flex flex-wrap items-center gap-x-4 gap-y-3 rounded-card border bg-surface p-4 shadow-card transition hover:-translate-y-0.5 hover:shadow-pop sm:p-5",
+                pay.waitingConfirm ? "border-sky/30" : "border-primary/30",
+              )}
+            >
+              <span
+                className={cn(
+                  "relative grid size-11 shrink-0 place-items-center rounded-[14px]",
+                  pay.waitingConfirm ? "bg-sky-soft text-sky" : "bg-primary-soft text-primary",
+                )}
+              >
+                <Wallet className="size-5" />
+                {!pay.waitingConfirm && (
+                  <span className="absolute -right-1 -top-1 size-3 rounded-full bg-primary ring-2 ring-surface" aria-hidden>
+                    <span className="absolute inset-0 rounded-full bg-primary motion-safe:animate-ping" />
+                  </span>
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-bold">
+                  {payInv.sessionCount} buổi học <span className="font-normal text-muted">· {payInv.code}</span>
+                </span>
+                <span className="block text-sm text-muted">
+                  {mergedAmount > 0
+                    ? `Đã gồm ${formatVnd(mergedAmount)} còn thiếu của ${merged.size} phiếu trước`
+                    : `Phát hành ${formatDate(payInv.issuedAt)}`}
+                </span>
+              </span>
+              <span className="text-right">
+                <span className="block text-xl font-extrabold tabular">{formatVnd(pay.amount)}</span>
+                <span className={cn("inline-flex items-center gap-1 text-sm font-semibold", pay.waitingConfirm ? "text-sky" : "text-primary")}>
+                  {pay.waitingConfirm ? "Xem phiếu" : "Xem phiếu & mã QR"}
+                  <ChevronRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </span>
+            </Link>
+          </motion.div>
+        </section>
+      )}
+
+      <SectionTitle>{pay ? "Phiếu trước" : "Phiếu học phí"}</SectionTitle>
       {fees.invoices.length === 0 ? (
-        <EmptyState mood="happy" title="Chưa có phiếu nào" description="Đủ buổi học là cô sẽ gửi phiếu ạ." />
+        <EmptyState mood="happy" title="Chưa có phiếu nào" description="Đủ buổi học là cô sẽ gửi phiếu vào đây ạ." />
+      ) : rest.length === 0 ? (
+        <Card variant="outline" className="p-5 text-center text-sm text-muted">
+          Chưa có phiếu nào khác.
+        </Card>
       ) : (
         <Card className="divide-y divide-line">
-          {fees.invoices.map((inv) => (
-            <a key={inv.id} href={`/p/${inv.token}`} className="flex items-center gap-3 p-4 transition hover:bg-surface-subtle">
+          {rest.map((inv) => (
+            <Link key={inv.id} href={hrefOf(inv.id)} className="flex items-center gap-3 p-4 transition hover:bg-surface-subtle">
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">
                   {inv.sessionCount} buổi <span className="font-normal text-muted">· {inv.code}</span>
                 </p>
                 <p className="text-caption text-muted">Phát hành {formatDate(inv.issuedAt)}</p>
-                <InvoiceStateChip state={inv.state} className="mt-1.5" />
+                {merged.has(inv.id) ? (
+                  <Chip tone="muted" className="mt-1.5">
+                    Đã gộp vào phiếu {pay?.code}
+                  </Chip>
+                ) : (
+                  <InvoiceStateChip state={inv.state} className="mt-1.5" />
+                )}
               </div>
-              <span className="whitespace-nowrap text-right font-bold tabular">
-                {formatVnd(inv.state === "PAID" ? inv.amount : inv.totalDue)}
+              <span className={cn("whitespace-nowrap text-right font-bold tabular", merged.has(inv.id) && "text-muted line-through decoration-1")}>
+                {formatVnd(inv.state === "PAID" ? inv.amount : inv.remaining)}
               </span>
               <ChevronRight className="size-4 shrink-0 text-muted" />
-            </a>
+            </Link>
           ))}
         </Card>
       )}

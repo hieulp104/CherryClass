@@ -193,6 +193,8 @@ model Classroom {
   grade      Int // 8 | 9
   color      String    @default("#E11D48")
   sortOrder  Int       @default(0) @map("sort_order")
+  /// Số buổi mỗi chu kỳ riêng của lớp. null = theo Cài đặt chung.
+  cycleLength Int?     @map("cycle_length")
   archivedAt DateTime? @map("archived_at")
   createdAt  DateTime  @default(now()) @map("created_at")
 
@@ -208,6 +210,8 @@ model Shift {
   name        String // "Ca 1"
   room        String?
   active      Boolean  @default(true)
+  /// Mốc khép kỳ gần nhất của ca: khóa "YYYY-MM-DD HH:MM" của buổi khép kỳ. null = chưa khép lần nào.
+  cycleMark   String?  @map("cycle_mark")
   createdAt   DateTime @default(now()) @map("created_at")
 
   classroom Classroom       @relation(fields: [classroomId], references: [id])
@@ -463,6 +467,12 @@ model BankTransaction {
   content          String
   receivedAt       DateTime     @map("received_at")
   matchedPaymentId String?      @map("matched_payment_id")
+  /// MATCHED (tự xác nhận) · UNMATCHED (chờ cô gán) · IGNORED (tiền ra / tài khoản khác).
+  decision         String       @default("UNMATCHED")
+  /// Vì sao chưa khớp / bị bỏ qua — hiện cho cô xem.
+  reason           String?
+  /// Cô bấm "Không phải học phí" — ẩn khỏi danh sách chờ.
+  dismissedAt      DateTime?    @map("dismissed_at")
   raw              Json
   createdAt        DateTime     @default(now()) @map("created_at")
 

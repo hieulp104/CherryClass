@@ -56,6 +56,10 @@ src/
 - Tiền là `Int` (đồng). Không Float. Làm tròn luôn theo hướng có lợi cho phụ huynh.
 - `Attendance.billable` + `unitPrice` **chốt lúc "Xong buổi"** — đổi cài đặt/đơn giá không làm đổi buổi cũ.
 - `InvoiceLine.attendanceId` UNIQUE → một buổi không bao giờ bị tính hai lần.
+- **Phiếu ra theo nhịp CA** (`shiftCycle` + `planClassInvoices`): ca học xong N buổi sau `Shift.cycleMark` → khép kỳ,
+  mọi em của ca có phiếu cùng lúc; em mới vào được phiếu đầu ngắn hơn (chỉ buổi đã học). N = `Classroom.cycleLength`
+  hoặc Cài đặt chung. Đổi N → ca đã đủ thì khép ngay (`closeShiftCycle`). Cộng tay buổi cũ: đủ N là ra phiếu ngay.
+- Phụ huynh chỉ thấy MỘT khoản cần đóng: phiếu mới nhất còn thiếu (`invoiceToPay`) — đã gồm nợ các phiếu cũ.
 - Trạng thái thanh toán **không lưu**: tính từ sổ cái (`allocatePayments` FIFO). "Cần đóng" trên phiếu tính sống.
 - `Invoice.discountSnapshot` chụp mức giảm lúc phát hành — sửa tay phiếu cũ không lấy mức giảm mới.
 - Buổi nằm trong phiếu **đã gửi** thì khóa sửa điểm danh; phải sửa qua phiếu (lý do bắt buộc).
@@ -102,6 +106,7 @@ src/
 | Phụ huynh được nộp bài hộ con | Khối 8 không có điện thoại |
 | Vườn cherry TÍNH từ dữ liệu (bài đúng hạn + tuần đi đủ), không lưu điểm thưởng | Không lệch khi sửa điểm danh / gia hạn |
 | Gia hạn bài: "muộn" luôn so với hạn hiện tại | Đơn giản, đúng cảm nhận của học sinh |
+| Chu kỳ theo nhịp CA, số buổi đặt riêng từng lớp; em vào muộn có phiếu đầu ngắn (13/10/2026) | Cô thu tiền cả ca một lúc, không ai bị tính buổi chưa học |
 
 ## 7. Roadmap
 
@@ -111,7 +116,7 @@ src/
   giao đề (ảnh/PDF, lớp/ca/từng em, hạn nộp), nộp bài nhiều trang (tự xoay + làm nét), chấm bài (khoanh lên ảnh,
   nhận xét mẫu, ghi âm), vườn cherry + huy hiệu, so với chính mình, đếm ngược thi vào 10, cổng phụ huynh.
 - 🟡 **GĐ3**: ✅ báo cáo tháng cho phụ huynh (Sổ tay học sinh → "Báo cáo tháng": gom chuyên cần, bài tập, điểm;
-  cô viết thêm rồi sao chép). ⬜ tổng kết năm học "Wrapped", ⬜ webhook SePay/Casso (bảng `BankTransaction` đã có).
+  cô viết thêm rồi sao chép). ⬜ tổng kết năm học "Wrapped", ✅ webhook SePay (`/api/public/sepay`, khóa `SEPAY_API_KEY`): tiền về có mã phiếu → tự xác nhận; không có mã → "Tiền về chưa khớp" cho cô gán; nút "Giả lập tiền về" trên máy thử. Cần tên miền HTTPS mới nối SePay thật.
 - ⬜ Triển khai: cần tên miền HTTPS (PWA + link phiếu). Sao lưu tự động định kỳ (hiện có nút "Tải file sao lưu").
 
 ## 8. Quy trình Git
