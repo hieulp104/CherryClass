@@ -49,6 +49,7 @@ npm run dev             # http://localhost:3005
 |---|---|
 | [docs/requirements.md](docs/requirements.md) | Brief gốc |
 | [docs/thiet-ke.md](docs/thiet-ke.md) | Design system, sơ đồ CSDL, luồng tiền, ví dụ tính tiền, quyết định đã chốt |
+| [docs/so-tay-test.html](docs/so-tay-test.html) | Sổ tay bấm thử 19 tình huống (bấm đúp để mở trong trình duyệt) |
 | [CLAUDE.md](CLAUDE.md) | Convention code, quy tắc tiền, cấu trúc thư mục |
 
 ## Nhánh

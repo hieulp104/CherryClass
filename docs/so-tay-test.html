@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Sổ tay test: mở bằng cách bấm đúp file này. Bản trực tuyến: https://claude.ai/artifact/TdciWhdXfyB1wGv6MGbH1K -->
+</head>
+<body>
+<title>Sổ tay test TeamCherry</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Bố cục: một cột đọc 760px; máy rộng có mục lục dính bên trái. Màu lấy từ chính app TeamCherry. */
+  :root {
+    --bg: #fff8f3;
+    --surface: #ffffff;
+    --subtle: #fff1ec;
+    --fg: #2a1b22;
+    --muted: #6f5a65;
+    --line: #f0dcd6;
+    --cherry: #e11d48;
+    --cherry-deep: #9f1239;
+    --cherry-soft: #ffe4e6;
+    --leaf: #15803d;
+    --leaf-soft: #dcfce7;
+    --amber: #b45309;
+    --amber-soft: #fef3c7;
+    --night: linear-gradient(135deg, #1f0410 0%, #3b0718 55%, #5a0b26 100%);
+    --font: "Be Vietnam Pro", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1a0b16; --surface: #26111f; --subtle: #2f1526; --fg: #fce7f0; --muted: #c0a3b2; --line: #43213a;
+      --cherry: #fb7185; --cherry-deep: #fda4af; --cherry-soft: #4c1530;
+      --leaf: #4ade80; --leaf-soft: #12341f; --amber: #fbbf24; --amber-soft: #3b2a0d;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1a0b16; --surface: #26111f; --subtle: #2f1526; --fg: #fce7f0; --muted: #c0a3b2; --line: #43213a;
+    --cherry: #fb7185; --cherry-deep: #fda4af; --cherry-soft: #4c1530;
+    --leaf: #4ade80; --leaf-soft: #12341f; --amber: #fbbf24; --amber-soft: #3b2a0d;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 16px; line-height: 1.6; padding-inline: 16px; padding-block: 0 64px; }
+  h1, h2, h3 { text-wrap: balance; line-height: 1.25; margin: 0; }
+  p { margin: 0; }
+  a { color: var(--cherry-deep); }
+  kbd, code { font-family: var(--mono); font-size: 0.86em; background: var(--subtle); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+  b { font-weight: 700; }
+  .btnlabel { font-weight: 700; color: var(--cherry-deep); white-space: nowrap; }
+
+  .shell { max-width: 1080px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 32px; }
+  @media (min-width: 980px) { .shell { grid-template-columns: 240px minmax(0, 1fr); } }
+  main { min-width: 0; max-width: 760px; display: grid; gap: 40px; }
+
+  /* Mục lục */
+  nav.toc { display: none; }
+  @media (min-width: 980px) {
+    nav.toc { display: block; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; padding-top: 24px; }
+  }
+  .toc p { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
+  .toc a { display: flex; justify-content: space-between; gap: 8px; padding: 7px 10px; border-radius: 10px; text-decoration: none; color: var(--fg); font-size: 14px; font-weight: 500; }
+  .toc a:hover { background: var(--subtle); }
+  .toc .n { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+  .toc .n.full { color: var(--leaf); font-weight: 700; }
+
+  /* Đầu trang */
+  header.hero { background: var(--night); color: #fff; border-radius: 28px; padding: 28px; margin-top: 24px; display: grid; gap: 18px; }
+  .hero h1 { font-size: clamp(1.8rem, 5vw, 2.4rem); font-weight: 800; letter-spacing: -0.02em; }
+  .hero .lede { color: rgb(255 255 255 / 0.75); max-width: 60ch; }
+  .meter { display: grid; gap: 8px; }
+  .meter .row { display: flex; justify-content: space-between; font-size: 14px; color: rgb(255 255 255 / 0.8); font-variant-numeric: tabular-nums; }
+  .bar { height: 8px; border-radius: 999px; background: rgb(255 255 255 / 0.15); overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 100%; background: #fff; transform-origin: left; transform: scaleX(0); transition: transform 0.5s cubic-bezier(.22,1,.36,1); }
+  .hero .reset { justify-self: start; background: transparent; color: rgb(255 255 255 / 0.7); border: 1px solid rgb(255 255 255 / 0.25); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: 13px; cursor: pointer; }
+  .hero .reset:hover { color: #fff; border-color: rgb(255 255 255 / 0.5); }
+  .confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; color: rgb(255 255 255 / 0.85); }
+  .confirm button { font: inherit; font-size: 13px; border-radius: 999px; padding: 6px 14px; cursor: pointer; border: 0; }
+  .confirm .yes { background: #fff; color: #9f1239; font-weight: 700; }
+  .confirm .no { background: transparent; color: #fff; border: 1px solid rgb(255 255 255 / 0.3); }
+
+  section > h2 { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 6px; }
+  section > .intro { color: var(--muted); margin-bottom: 18px; max-width: 65ch; }
+
+  /* Luồng tiền */
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 4px; }
+  .flow .step { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 14px; font-weight: 600; }
+  .flow .step.money { background: var(--cherry-soft); border-color: transparent; color: var(--cherry-deep); }
+  .flow .step.done { background: var(--leaf-soft); border-color: transparent; color: var(--leaf); }
+  .flow .arrow { color: var(--muted); font-size: 14px; padding-inline: 2px; }
+  .terms { display: grid; grid-template-columns: 1fr; gap: 0; margin-top: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+  .terms div { display: grid; grid-template-columns: 1fr; gap: 2px; padding: 12px 16px; border-top: 1px solid var(--line); }
+  .terms div:first-child { border-top: 0; }
+  @media (min-width: 620px) { .terms div { grid-template-columns: 170px minmax(0, 1fr); gap: 16px; } }
+  .terms dt { font-weight: 700; }
+  .terms dd { margin: 0; color: var(--muted); }
+
+  /* Tài khoản */
+  .accounts { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  @media (min-width: 620px) { .accounts { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .acct { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; display: grid; gap: 6px; min-width: 0; }
+  .acct .role { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .acct .who { font-weight: 700; }
+  .copy { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--subtle); border-radius: 10px; padding: 6px 6px 6px 10px; min-width: 0; }
+  .copy code { background: none; border: 0; padding: 0; overflow-wrap: anywhere; }
+  .copy button { flex: none; font: inherit; font-size: 12px; font-weight: 600; border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+  .copy button:hover { border-color: var(--cherry); }
+  .tips { margin-top: 14px; display: grid; gap: 8px; }
+  .tip { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 15px; }
+  .tip.warn { background: var(--amber-soft); border-color: transparent; }
+
+  /* Tình huống */
+  .scen { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 20px; display: grid; gap: 14px; scroll-margin-top: 16px; }
+  .scen + .scen { margin-top: 14px; }
+  .scen.complete { border-color: color-mix(in oklab, var(--leaf) 45%, transparent); }
+  .scen-head { display: flex; gap: 12px; align-items: flex-start; }
+  .tag { flex: none; font-size: 13px; font-weight: 800; color: var(--cherry-deep); background: var(--cherry-soft); border-radius: 10px; padding: 4px 9px; font-variant-numeric: tabular-nums; }
+  .scen.complete .tag { color: var(--leaf); background: var(--leaf-soft); }
+  .scen h3 { font-size: 1.15rem; font-weight: 700; }
+  .why { color: var(--muted); font-size: 15px; margin-top: 2px; }
+  .needs { font-size: 13px; font-weight: 600; color: var(--amber); background: var(--amber-soft); border-radius: 999px; padding: 3px 10px; justify-self: start; }
+  ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; counter-reset: s; }
+  ol.steps li { counter-increment: s; }
+  ol.steps label { display: grid; grid-template-columns: 22px 26px minmax(0, 1fr); gap: 8px; align-items: start; padding: 8px 10px; border-radius: 12px; cursor: pointer; }
+  ol.steps label:hover { background: var(--subtle); }
+  ol.steps label::before { content: counter(s) "."; grid-column: 2; grid-row: 1; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  ol.steps input { grid-column: 1; grid-row: 1; width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--cherry); cursor: pointer; }
+  ol.steps .t { grid-column: 3; grid-row: 1; }
+  ol.steps input:checked ~ .t { color: var(--muted); text-decoration: line-through; text-decoration-color: color-mix(in oklab, var(--muted) 60%, transparent); }
+  ol.steps input:focus-visible { outline: 2px solid var(--cherry); outline-offset: 2px; }
+  .result { background: var(--leaf-soft); border-radius: 14px; padding: 12px 14px; font-size: 15px; }
+  .result b:first-child { color: var(--leaf); }
+  .learn { border-left: 3px solid var(--cherry); padding-left: 12px; font-size: 15px; }
+  .learn b:first-child { color: var(--cherry-deep); }
+
+  @media (prefers-reduced-motion: reduce) { .bar span { transition: none; } }
+</style>
+
+<div class="shell">
+  <nav class="toc" aria-label="Mục lục">
+    <p>Mục lục</p>
+    <a href="#hieu">Hiểu app trong 2 phút</a>
+    <a href="#chuan-bi">Chuẩn bị</a>
+    <div id="toc-groups"></div>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <h1>Sổ tay test TeamCherry</h1>
+      <p class="lede">Mỗi tình huống ghi rõ bấm gì, kết quả đúng trông thế nào, và qua đó hiểu thêm điều gì về app. Làm xong bước nào thì tích bước đó. Trình duyệt này tự nhớ tiến độ.</p>
+      <div class="meter">
+        <div class="row"><span>Tiến độ</span><span id="meter-text">0/0 bước</span></div>
+        <div class="bar" aria-hidden="true"><span id="meter-bar"></span></div>
+      </div>
+      <button type="button" class="reset" id="reset">Bỏ tích tất cả</button>
+      <div class="confirm" id="confirm" hidden>
+        <span>Bỏ hết dấu tích đã làm?</span>
+        <button type="button" class="yes" id="reset-yes">Bỏ tích</button>
+        <button type="button" class="no" id="reset-no">Giữ lại</button>
+      </div>
+    </header>
+
+    <section id="hieu">
+      <h2>Hiểu app trong 2 phút</h2>
+      <p class="intro">App giúp cô giáo làm ba việc: điểm danh, thu học phí, giao và chấm bài. Ba vai trò dùng chung một app: <b>cô giáo</b> quản lý tất cả, <b>học sinh khối 9</b> nộp bài và xem điểm, <b>phụ huynh</b> xem con học thế nào và đóng học phí.</p>
+      <p class="intro" style="margin-bottom:10px">Phần quan trọng nhất là đường đi của tiền. Gần như mọi tình huống bên dưới đều đi theo chuỗi này:</p>
+      <div class="flow" aria-label="Đường đi của tiền">
+        <span class="step">Điểm danh</span><span class="arrow">→</span>
+        <span class="step">Đếm buổi</span><span class="arrow">→</span>
+        <span class="step money">Đủ 10 buổi: app tự tạo phiếu</span><span class="arrow">→</span>
+        <span class="step money">Cô gửi phiếu</span><span class="arrow">→</span>
+        <span class="step money">Phụ huynh quét QR chuyển khoản</span><span class="arrow">→</span>
+        <span class="step money">Tiền về: app tự xác nhận</span><span class="arrow">→</span>
+        <span class="step done">Đã thu</span>
+      </div>
+      <dl class="terms">
+        <div><dt>Chu kỳ theo ca</dt><dd>Cả ca đi chung một nhịp: ca học xong N buổi (mặc định 10, đặt riêng được cho từng lớp) thì khép kỳ, mọi em của ca có phiếu cùng lúc. Em vào giữa kỳ được phiếu đầu ngắn hơn — chỉ tính buổi đã học.</dd></div>
+        <div><dt>Phiếu thu</dt><dd>Mã dạng <code>PT-2026-0139</code>. Ghi các buổi đã học, đơn giá, giảm giá anh chị em, và số cần đóng.</dd></div>
+        <div><dt>Nợ kỳ trước</dt><dd>Phụ huynh đóng thiếu thì phần còn thiếu tự cộng vào phiếu sau. Phiếu mới nhất luôn là số cần đóng tổng, nên không bao giờ tính hai lần.</dd></div>
+        <div><dt>Tiền tự về</dt><dd>Tiền vào tài khoản có mã phiếu trong nội dung (mã QR điền sẵn) thì app tự xác nhận, đúng số tiền thật. Không có mã thì hiện ở "Tiền về chưa biết của em nào" để cô gán. Phụ huynh bấm "Tôi đã chuyển khoản" chỉ là báo, chưa tính tiền.</dd></div>
+        <div><dt>Khóa điểm danh</dt><dd>Buổi nằm trong phiếu đã gửi thì không sửa điểm danh trực tiếp được nữa. Muốn sửa thì sửa trong phiếu, kèm lý do.</dd></div>
+        <div><dt>Vườn cherry</dt><dd>Học sinh được 1 quả cho mỗi bài nộp đúng hạn và mỗi tuần đi học đủ. Không xếp hạng, không so với bạn.</dd></div>
+      </dl>
+    </section>
+
+    <section id="chuan-bi">
+      <h2>Chuẩn bị</h2>
+      <p class="intro">App chạy trên máy bạn ở <code>http://localhost:3005</code>. Mật khẩu của cả ba tài khoản đều là <code>Cherry@2026</code>.</p>
+      <div class="accounts">
+        <div class="acct"><span class="role">Cô giáo</span><span class="who">cô Hà</span><div class="copy"><code>co.ha@teamcherry.vn</code><button type="button" data-copy="co.ha@teamcherry.vn">Sao chép</button></div></div>
+        <div class="acct"><span class="role">Phụ huynh</span><span class="who">Anh Trang (con: Bình, Châu)</span><div class="copy"><code>0870009687</code><button type="button" data-copy="0870009687">Sao chép</button></div></div>
+        <div class="acct"><span class="role">Học sinh khối 9</span><span class="who">Trần Minh Bình, lớp 9A</span><div class="copy"><code>hs0068</code><button type="button" data-copy="hs0068">Sao chép</button></div></div>
+      </div>
+      <div class="tips">
+        <p class="tip"><b>Mở hai cửa sổ cạnh nhau.</b> Cửa sổ thường đăng nhập cô giáo. Cửa sổ ẩn danh (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>) đăng nhập phụ huynh hoặc học sinh. Hai bên không đá nhau ra.</p>
+        <p class="tip"><b>Thấy chưa cập nhật?</b> Bấm <kbd>F5</kbd> để tải lại trang. App không tự làm mới khi bên kia vừa bấm.</p>
+        <p class="tip warn"><b>Mã QR trên phiếu chuyển tiền THẬT</b> vào tài khoản đặt trong Cài đặt (máy của bạn đang để tài khoản MB thật). Đừng quét QR bằng app ngân hàng khi thử. Muốn thử "tiền về", dùng nút <span class="btnlabel">Giả lập tiền về</span> — không có tiền thật nào chuyển đi.</p>
+        <p class="tip"><b>Muốn làm lại từ đầu?</b> Bảo Claude "reset dữ liệu" để đưa mọi thứ về như lúc mới cài. Những gì bạn đã bấm thử sẽ mất.</p>
+      </div>
+    </section>
+
+    <div id="groups"></div>
+  </main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  // Mỗi tình huống: id, tên, vì sao làm, cần làm trước, các bước, kết quả đúng, hiểu được gì.
+  var B = function (s) { return '<span class="btnlabel">' + s + '</span>'; };
+  var GROUPS = [
+    {
+      id: "diem-danh", title: "Điểm danh",
+      intro: "Việc cô làm mỗi ngày khi đứng lớp. Mọi phép tính tiền bắt đầu từ đây.",
+      items: [
+        {
+          id: "s1", title: "Điểm danh một buổi có em vắng",
+          why: "Xem chế độ đứng lớp và cách app đếm buổi.",
+          steps: [
+            "Đăng nhập cô giáo. Ở trang " + B("Tổng quan") + ", bấm nút trắng " + B("Điểm danh Lớp …") + " trên dải màu đỏ rượu.",
+            "Cả lớp mặc định là có mặt. Kéo thẻ một em sang trái (trên máy tính thì giữ chuột rồi kéo) và chọn " + B("Vắng có phép") + ".",
+            "Làm tương tự với một em khác, chọn " + B("Vắng không phép") + ".",
+            "Giữ lâu trên thẻ một em thứ ba, chọn ghi chú " + B("Đi muộn") + ".",
+            "Bấm nút to ở cuối: " + B("Xong buổi · …/… có mặt") + "."
+          ],
+          result: "Hiện màn chúc mừng. Quay lại Tổng quan, vạch của ca đó trên thước giờ chuyển sang màu xanh lá.",
+          learn: "Mỗi em vẫn được đếm thêm 1 buổi kể cả khi vắng, vì Cài đặt mặc định tính cả hai loại vắng. Hàng quả cherry dưới tên em là số buổi trong chu kỳ."
+        },
+        {
+          id: "s2", title: "Thêm em học bù từ ca khác",
+          why: "Em học ca khác đến học bù vẫn được tính buổi đúng cho em đó.",
+          steps: [
+            "Mở chế độ điểm danh một ca bất kỳ (như tình huống trên).",
+            "Bấm " + B("Thêm em học bù từ ca khác") + " ở cuối danh sách.",
+            "Gõ tên không dấu, ví dụ <code>nguyen</code>, rồi chọn một em.",
+            "Bấm " + B("Xong buổi") + "."
+          ],
+          result: "Thẻ em đó có nhãn xanh dương \"Học bù · Lớp …\".",
+          learn: "Tìm không dấu chạy trên toàn bộ học sinh. Buổi học bù được tính tiền như buổi thường, vào phiếu khi ca CỦA EM khép kỳ."
+        },
+        {
+          id: "s2b", title: "Đổi số buổi mỗi chu kỳ của một lớp",
+          why: "Mỗi lớp đặt số buổi riêng. Cả ca đi chung nhịp, em vào muộn được phiếu đầu ngắn.",
+          steps: [
+            "Cô: " + B("Lớp học") + ". Mỗi ca có thanh " + B("Chu kỳ 8/10") + " — ca đã học 8 trong 10 buổi.",
+            "Mở chế độ điểm danh một ca: góc trên ghi " + B("Chu kỳ ca: buổi …/10") + "; đến buổi thứ 10 thì ghi " + B("Buổi này khép chu kỳ · … em có phiếu") + ".",
+            "Quay lại " + B("Lớp học") + ", bấm ✏️ ở " + B("Lớp 9B") + ", ô " + B("Số buổi mỗi chu kỳ") + " nhập <code>8</code>, bấm " + B("Lưu") + "."
+          ],
+          result: "Thông báo \"ca đã đủ buổi nên có … phiếu mới\". Ca nào đã học từ 8 buổi trở lên khép kỳ ngay; thanh chu kỳ đổi sang …/8. Trong " + B("Thu tiền") + " → " + B("Cần gửi") + ": đa số phiếu 8 buổi, em vào học muộn có phiếu ít buổi hơn.",
+          learn: "Không ai bị tính buổi chưa học. Bước này tạo nhiều phiếu thật — thử xong muốn quay lại thì bảo Claude \"reset dữ liệu\"."
+        }
+      ]
+    },
+    {
+      id: "hoc-phi", title: "Học phí",
+      intro: "Phần quan trọng nhất: app không bao giờ được tính sai tiền. Làm lần lượt từ trên xuống, vì các tình huống sau dùng phiếu của tình huống trước.",
+      items: [
+        {
+          id: "s3", title: "Tạo một phiếu thu cho bé Châu",
+          why: "Bình thường ca học xong 10 buổi mới có phiếu. \"Sửa bộ đếm\" cộng tay buổi cũ: đủ 10 buổi là ra phiếu ngay, để thử.",
+          steps: [
+            "Vào " + B("Học sinh") + ", gõ <code>chau</code> vào ô tìm, bấm vào " + B("Trần Minh Châu") + ".",
+            "Ở khung " + B("Chu kỳ hiện tại") + ", bấm " + B("Sửa bộ đếm") + ". Đầu bảng ghi em đang có mấy buổi.",
+            "Giữ " + B("Cộng buổi") + ", bấm nút nhanh " + B("+10") + ". Ô xem trước hiện phép tính, ví dụ <code>8 + 10 = 18 buổi</code>, và \"Đủ 10 buổi — ra ngay 1 phiếu\".",
+            "Bấm lý do có sẵn " + B("Buổi đã học trước khi dùng app") + ", rồi bấm nút " + B("Cộng 10 buổi · thành … buổi") + "."
+          ],
+          result: "Pháo giấy cherry. Vào " + B("Thu tiền") + ", tab " + B("Cần gửi") + " có phiếu mới 10 buổi của Châu: <b>720.000đ</b>.",
+          learn: "10 buổi × 80.000đ = 800.000đ, trừ 10% giảm anh chị em (Châu là em của Bình) còn 720.000đ. Nút lưu bị mờ khi chưa có lý do — mọi lần sửa tay đều phải ghi lý do."
+        },
+        {
+          id: "s4", title: "Gửi phiếu vào app, phụ huynh trả, cô xác nhận",
+          why: "Luồng thu tiền chuẩn, từ đầu đến cuối.",
+          needs: "Cần làm trước: tình huống 3",
+          steps: [
+            "Cửa sổ cô: " + B("Thu tiền") + " → tab " + B("Cần gửi") + " → dòng của Châu → " + B("Gửi phiếu") + ".",
+            "Hộp xanh báo \"Phụ huynh đã có tài khoản app\". Bấm " + B("Gửi phiếu vào app") + ".",
+            "Cửa sổ ẩn danh: đăng nhập phụ huynh <code>0870009687</code>, bấm chọn con " + B("Châu") + ". Mục " + B("Học phí") + " có chấm đỏ.",
+            "Bấm " + B("Học phí") + " → " + B("Xem mã QR để đóng") + ". Xem mã QR, ngân hàng, số tài khoản, nội dung chuyển khoản.",
+            "Bấm " + B("Tôi đã chuyển khoản") + ".",
+            "Cửa sổ cô, bấm F5: chuông có thông báo mới. " + B("Thu tiền") + " → tab " + B("Chờ xác nhận") + " → " + B("Xác nhận") + " → " + B("Đã nhận đủ …") + "."
+          ],
+          result: "Cô thấy pháo giấy, phiếu sang tab " + B("Đã thu") + ". Phụ huynh tải lại: ô Học phí ghi \"Đã đóng đủ\", chấm đỏ biến mất.",
+          learn: "Bấm \"Tôi đã chuyển khoản\" chỉ là báo, chưa tính tiền. Ngay khi phụ huynh báo, chấm đỏ đã tắt để không nhắc nữa; tiền chỉ được tính sau khi cô xác nhận — hoặc khi tiền về tài khoản thật (tình huống sau)."
+        },
+        {
+          id: "s4b", title: "Tiền về tài khoản: app tự xác nhận",
+          why: "Khi nối ngân hàng (SePay), cô không phải kiểm tra rồi bấm nữa. Trên máy thử dùng nút giả lập — đi đúng đường xử lý như tiền về thật.",
+          needs: "Cần một phiếu đã gửi chưa đóng (tình huống 3 và 4, dừng trước bước phụ huynh báo)",
+          steps: [
+            "Cô: " + B("Thu tiền") + " → tab " + B("Chờ đóng") + " → bấm vào phiếu của Châu → nút viền nét đứt " + B("Giả lập tiền về") + ".",
+            "Chọn " + B("Đúng số tiền") + " (số tiền và nội dung có mã phiếu đã điền sẵn như mã QR), bấm " + B("Giả lập … về tài khoản") + ".",
+            "Phiếu chuyển " + B("Đã thu") + " ngay. Chuông của cô có thông báo \"Đã nhận … học phí của Châu\".",
+            "Thử tiếp với một phiếu khác: " + B("Giả lập tiền về") + " → " + B("Chuyển thiếu") + ". Phiếu vẫn ghi nhận, còn \"Cần đóng\" phần thiếu.",
+            "Ở trang " + B("Thu tiền") + " bấm " + B("Giả lập tiền về") + " (góc trên) → " + B("Quên ghi mã phiếu") + " → gửi.",
+            "Khung vàng \"khoản tiền về chưa biết của em nào\" hiện ra. Bấm " + B("Gán cho em") + ", gõ <code>chau</code>, chọn em."
+          ],
+          result: "Có mã phiếu → tự xác nhận đúng số tiền thật (đủ / thiếu / dư đều ghi rõ). Không có mã → chờ cô gán; gán xong khung vàng biến mất và tiền vào sổ của em.",
+          learn: "App không bao giờ đoán tiền của em nào. Tiền ra khỏi tài khoản, tiền vào tài khoản khác, hoặc ngân hàng gửi lại cùng một giao dịch đều được bỏ qua — không ghi hai lần."
+        },
+        {
+          id: "s5", title: "Phụ huynh đóng thiếu",
+          why: "Xem tiền còn thiếu được chuyển sang kỳ sau thế nào.",
+          steps: [
+            "Làm lại tình huống 3 để có phiếu mới cho Châu, rồi gửi vào app như tình huống 4.",
+            "Phụ huynh bấm " + B("Tôi đã chuyển khoản") + ".",
+            "Cô: " + B("Xác nhận") + " → " + B("Số tiền khác") + " → nhập <code>500000</code> → " + B("Xác nhận 500.000đ") + ".",
+            "Phụ huynh tải lại trang Học phí: còn cần đóng 220.000đ.",
+            "Làm lại tình huống 3 lần nữa và gửi phiếu. Phụ huynh mở trang Học phí."
+          ],
+          result: "Chỉ có <b>một</b> khoản cần đóng: <b>940.000đ</b>, ghi \"Đã gồm 220.000đ còn thiếu của 1 phiếu trước\". Phiếu cũ có nhãn \"Đã gộp vào phiếu PT-…\". Mở phiếu mới thấy dòng \"Kỳ trước còn 220.000đ\".",
+          learn: "720.000 − 500.000 = 220.000đ còn thiếu, cộng phiếu mới 720.000đ = 940.000đ. Tiền thiếu không mất, và không bị tính hai lần."
+        },
+        {
+          id: "s6", title: "Phụ huynh bấm nhầm khi chưa chuyển",
+          why: "Cô từ chối một lần báo không có tiền thật.",
+          needs: "Cần một phiếu đã gửi chưa đóng (tình huống 3 và 4, dừng trước bước xác nhận)",
+          steps: [
+            "Phụ huynh bấm " + B("Tôi đã chuyển khoản") + ".",
+            "Cô: " + B("Thu tiền") + " → " + B("Chờ xác nhận") + " → " + B("Xác nhận") + " → " + B("Chưa thấy tiền") + "."
+          ],
+          result: "Báo \"Đã đánh dấu chưa nhận được tiền\". Phiếu quay về tab " + B("Chờ đóng") + ". Phụ huynh tải lại thì chấm đỏ hiện lại.",
+          learn: "Tiền chưa từng được tính, nên không có gì phải hoàn lại."
+        },
+        {
+          id: "s7", title: "Thu tiền mặt",
+          why: "Phụ huynh đưa tiền tận tay, không qua ngân hàng.",
+          steps: [
+            "Cô: " + B("Thu tiền") + " → tab " + B("Chờ đóng") + " hoặc " + B("Quá hạn") + " → bấm vào một phiếu.",
+            "Bấm " + B("Ghi nhận thu") + ", chọn " + B("Tiền mặt") + ", giữ số tiền gợi ý, ghi chú <code>Mẹ đưa tận tay</code>, lưu."
+          ],
+          result: "Phiếu sang " + B("Đã thu") + ". Ở " + B("Thống kê") + ", số \"Đã thu\" tháng này tăng đúng số tiền đó.",
+          learn: "Phụ huynh không cần bấm gì. Cô tự ghi nhận là đủ."
+        },
+        {
+          id: "s8", title: "Gửi phiếu cho nhà chưa có tài khoản app",
+          why: "Nhà chưa có tài khoản thì gửi link phiếu qua Zalo.",
+          steps: [
+            "Cô: " + B("Thu tiền") + " → " + B("Cần gửi") + " → chọn một phiếu không phải của Châu → " + B("Gửi phiếu") + ".",
+            "Hộp vàng báo phụ huynh chưa có tài khoản. Bấm " + B("Soạn tin Zalo kèm link phiếu") + ".",
+            "Chọn một giọng nhắc, bấm " + B("Sao chép tin nhắn") + ".",
+            "Dán vào Notepad. Copy đường link <code>localhost:3005/p/…</code> trong tin, mở ở cửa sổ ẩn danh."
+          ],
+          result: "Trang phiếu mở được mà không cần đăng nhập, có mã QR và nút \"Tôi đã chuyển khoản\". Phiếu bên cô sang tab " + B("Chờ đóng") + ".",
+          learn: "Link phiếu có mã bí mật riêng, không ai đoán được. Trang này không hiện số điện thoại hay ghi chú riêng của cô."
+        },
+        {
+          id: "s9", title: "Sửa tay số tiền một phiếu",
+          why: "Giảm cho gia đình khó khăn hoặc cộng tiền tài liệu.",
+          steps: [
+            "Cô: mở một phiếu ở tab " + B("Cần gửi") + " → " + B("Sửa số tiền") + ".",
+            "Chọn " + B("Giảm bớt") + ", nhập <code>50000</code>, ghi lý do <code>Hỗ trợ gia đình</code>, lưu."
+          ],
+          result: "Số tiền phiếu giảm 50.000đ. Cuối trang phiếu có mục \"Lịch sử sửa tay\" ghi lại lần sửa và lý do.",
+          learn: "Không có lý do thì không lưu được. Mọi thao tác chạm tới tiền đều để lại dấu vết."
+        }
+      ]
+    },
+    {
+      id: "tai-khoan", title: "Tài khoản",
+      intro: "Cô cấp tài khoản cho học sinh và phụ huynh. Không ai tự đăng ký được.",
+      items: [
+        {
+          id: "s10", title: "Cấp tài khoản phụ huynh cho cả lớp 8",
+          why: "Sau bước này, gửi phiếu cho lớp 8 chỉ cần một chạm.",
+          steps: [
+            "Cô: " + B("Lớp học") + " → cuối thẻ " + B("Lớp 8") + " → " + B("Cấp tài khoản phụ huynh cả lớp") + ".",
+            "Danh sách hiện Tên đăng nhập (số điện thoại phụ huynh) và Mật khẩu tạm dạng <code>cherry1234</code>. Copy một cặp.",
+            "Cửa sổ ẩn danh: đăng xuất nếu đang đăng nhập, rồi đăng nhập bằng cặp vừa copy.",
+            "App bắt đổi mật khẩu. Đặt mật khẩu mới."
+          ],
+          result: "Vào được cổng phụ huynh của em đó. Bên cô, khi gửi phiếu cho em này sẽ thấy hộp xanh \"đã có tài khoản\".",
+          learn: "Anh chị em dùng chung một tài khoản phụ huynh, chọn con ở thanh bên."
+        },
+        {
+          id: "s11", title: "Xem app dưới mắt học sinh khối 9",
+          why: "Học sinh thấy gì và không thấy gì.",
+          steps: [
+            "Cửa sổ ẩn danh: đăng nhập <code>hs0068</code>.",
+            "Xem trang " + B("Của em") + ": buổi học tới, đếm ngược thi vào lớp 10, vườn cherry, chuyên cần.",
+            "Mở " + B("Vườn cherry") + " và " + B("Điểm") + "."
+          ],
+          result: "Không có mục học phí, không có bảng xếp hạng, không có điểm của bạn khác.",
+          learn: "Mỗi em chỉ thấy dữ liệu của mình. Gõ tay địa chỉ bài của em khác sẽ ra trang \"không tìm thấy\"."
+        }
+      ]
+    },
+    {
+      id: "bai-tap", title: "Bài tập",
+      intro: "Cô giao đề, học sinh chụp bài nộp, cô chấm ngay trên điện thoại hoặc máy tính.",
+      items: [
+        {
+          id: "s12", title: "Giao một bài cho lớp 9A",
+          why: "Bước đầu của luồng bài tập.",
+          steps: [
+            "Cô: " + B("Bài tập") + " → " + B("Giao bài") + ".",
+            "Tên bài: <code>Bài thử</code>. Thêm đề: chọn một ảnh bất kỳ trong máy.",
+            "Giao cho " + B("Lớp 9A") + ", hạn nộp ngày mai, rồi bấm " + B("Giao bài") + "."
+          ],
+          result: "Bài mới hiện trong danh sách bài tập. Học sinh lớp 9A thấy bài ở mục " + B("Bài tập") + ", tab " + B("Cần làm") + ".",
+          learn: "App chốt danh sách em đang học ngay lúc giao. Em vào lớp sau không bị tính là thiếu bài."
+        },
+        {
+          id: "s13", title: "Học sinh nộp bài bằng ảnh",
+          why: "Ảnh tự xoay đúng chiều và làm nét như bản scan.",
+          needs: "Cần làm trước: tình huống 12",
+          steps: [
+            "Đăng nhập <code>hs0068</code> → " + B("Bài tập") + " → bấm vào " + B("Bài thử") + ".",
+            "Bấm " + B("Chọn ảnh / PDF") + ", chọn 1–2 ảnh, đợi tải xong.",
+            "Bấm " + B("Nộp bài") + "."
+          ],
+          result: "Bài chuyển sang tab " + B("Chờ chấm") + ". Bên cô, bài này có thêm 1 bài nộp.",
+          learn: "Nộp lại được cho tới khi cô chấm. Phụ huynh cũng nộp hộ con được."
+        },
+        {
+          id: "s14", title: "Chấm bài và xem kết quả",
+          why: "Cô khoanh lên ảnh, cho điểm, nhận xét; em thấy ngay.",
+          needs: "Cần làm trước: tình huống 13",
+          steps: [
+            "Cô: " + B("Bài tập") + " → " + B("Bài thử") + " → " + B("Chấm 1 bài") + ".",
+            "Vẽ vài nét khoanh lên ảnh, chọn điểm, bấm một nhận xét mẫu.",
+            "Bấm " + B("Lưu … điểm & bài tiếp") + ".",
+            "Học sinh tải lại trang bài: xem điểm, nét khoanh và nhận xét."
+          ],
+          result: "Học sinh thấy điểm và nét khoanh của cô. Vườn cherry có thêm 1 quả vì nộp đúng hạn.",
+          learn: "Nếu cho dưới 5 điểm, em luôn thấy kèm một lời động viên và ô \"cần ôn thêm\". Thử lại với điểm 4 để xem."
+        }
+      ]
+    },
+    {
+      id: "quan-ly", title: "Quản lý",
+      intro: "Thu chi, báo cáo cho phụ huynh, và điểm danh khi mất mạng.",
+      items: [
+        {
+          id: "s15", title: "Ghi một khoản chi",
+          why: "Xem lợi nhuận tự tính lại.",
+          steps: [
+            "Cô: " + B("Thống kê") + " → " + B("Thêm khoản chi") + ".",
+            "Nhập <code>50000</code>, ghi chú <code>Photo đề</code>, lưu.",
+            "Bấm " + B("Xuất Excel") + " để tải file tháng này."
+          ],
+          result: "\"Đã chi\" tăng 50.000đ, \"Lợi nhuận\" giảm 50.000đ. File Excel có đủ thu và chi.",
+          learn: "Ở cuối trang Thống kê có " + B("Tải file sao lưu") + ". Nên tải mỗi tháng một lần."
+        },
+        {
+          id: "s16", title: "Báo cáo tháng cho phụ huynh",
+          why: "Gom chuyên cần, bài tập và điểm của một em thành tin nhắn.",
+          steps: [
+            "Cô: " + B("Học sinh") + " → bấm vào một em → " + B("Báo cáo tháng") + ".",
+            "Chọn tháng, viết thêm vài dòng ở ô " + B("Cô viết thêm") + ", rồi bấm " + B("Sao chép tin nhắn") + "."
+          ],
+          result: "Dán ra Notepad thấy một tin nhắn hoàn chỉnh, có tên con và số liệu tháng.",
+          learn: "App không tự gửi tin nào. Cô luôn là người bấm gửi."
+        },
+        {
+          id: "s17", title: "Điểm danh khi mất mạng",
+          why: "Lớp học hay chập chờn wifi.",
+          steps: [
+            "Cô: mở chế độ điểm danh một ca.",
+            "Nhấn <kbd>F12</kbd> → tab " + B("Network") + " → đổi " + B("No throttling") + " thành " + B("Offline") + ".",
+            "Cho một em vắng rồi bấm " + B("Xong buổi") + ".",
+            "Đổi lại " + B("No throttling") + " và đợi vài giây."
+          ],
+          result: "Lúc mất mạng, app báo \"Mạng đang chập chờn\" và giữ lại điểm danh. Có mạng lại thì tự gửi lên.",
+          learn: "Mỗi lần bấm có một mã riêng, nên gửi lại nhiều lần cũng không bị ghi đôi."
+        }
+      ]
+    }
+  ];
+
+  var KEY = "tc-test-checks-v1";
+  var checks = {};
+  try { checks = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { checks = {}; }
+  var save = function () { try { localStorage.setItem(KEY, JSON.stringify(checks)); } catch (e) {} };
+
+  var esc = function (s) { return String(s); };
+  var total = 0;
+  var html = "";
+  var toc = "";
+  var n = 0;
+  GROUPS.forEach(function (g) {
+    var gSteps = 0;
+    var body = "";
+    g.items.forEach(function (s) {
+      n += 1;
+      s.no = n;
+      var steps = s.steps.map(function (t, i) {
+        var id = s.id + "-" + i;
+        gSteps += 1; total += 1;
+        return '<li><label for="' + id + '"><input type="checkbox" id="' + id + '" data-scen="' + s.id + '"><span class="t">' + esc(t) + "</span></label></li>";
+      }).join("");
+      body += '<article class="scen" id="' + s.id + '" data-steps="' + s.steps.length + '">' +
+        '<div class="scen-head"><span class="tag">' + n + "</span><div><h3>" + s.title + '</h3><p class="why">' + s.why + "</p></div></div>" +
+        (s.needs ? '<span class="needs">' + s.needs + "</span>" : "") +
+        '<ol class="steps">' + steps + "</ol>" +
+        '<p class="result"><b>Kết quả đúng:</b> ' + s.result + "</p>" +
+        '<p class="learn"><b>Hiểu được gì:</b> ' + s.learn + "</p>" +
+        "</article>";
+    });
+    html += '<section id="' + g.id + '"><h2>' + g.title + '</h2><p class="intro">' + g.intro + "</p>" + body + "</section>";
+    toc += '<a href="#' + g.id + '" data-group="' + g.id + '"><span>' + g.title + '</span><span class="n" data-count="' + g.id + '">0/' + gSteps + "</span></a>";
+  });
+  document.getElementById("groups").outerHTML = '<div id="groups" style="display:grid;gap:40px">' + html + "</div>";
+  document.getElementById("toc-groups").innerHTML = toc;
+
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('ol.steps input[type="checkbox"]'));
+  boxes.forEach(function (b) { b.checked = !!checks[b.id]; });
+
+  function refresh() {
+    var done = boxes.filter(function (b) { return b.checked; }).length;
+    document.getElementById("meter-text").textContent = done + "/" + total + " bước";
+    document.getElementById("meter-bar").style.transform = "scaleX(" + (total ? done / total : 0) + ")";
+    document.querySelectorAll(".scen").forEach(function (el) {
+      var all = el.querySelectorAll("input[type=checkbox]");
+      var ok = Array.prototype.every.call(all, function (b) { return b.checked; });
+      el.classList.toggle("complete", ok);
+    });
+    GROUPS.forEach(function (g) {
+      var sec = document.getElementById(g.id);
+      var all = sec.querySelectorAll("input[type=checkbox]");
+      var d = Array.prototype.filter.call(all, function (b) { return b.checked; }).length;
+      var c = document.querySelector('[data-count="' + g.id + '"]');
+      c.textContent = d + "/" + all.length;
+      c.classList.toggle("full", d === all.length && all.length > 0);
+    });
+  }
+  document.addEventListener("change", function (e) {
+    var b = e.target;
+    if (!b.matches || !b.matches('ol.steps input[type="checkbox"]')) return;
+    if (b.checked) checks[b.id] = 1; else delete checks[b.id];
+    save(); refresh();
+  });
+  refresh();
+
+  var confirmBox = document.getElementById("confirm");
+  var resetBtn = document.getElementById("reset");
+  resetBtn.addEventListener("click", function () { confirmBox.hidden = false; resetBtn.hidden = true; });
+  document.getElementById("reset-no").addEventListener("click", function () { confirmBox.hidden = true; resetBtn.hidden = false; });
+  document.getElementById("reset-yes").addEventListener("click", function () {
+    checks = {}; save();
+    boxes.forEach(function (b) { b.checked = false; });
+    confirmBox.hidden = true; resetBtn.hidden = false; refresh();
+  });
+
+  document.querySelectorAll("[data-copy]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var text = btn.getAttribute("data-copy");
+      var done = function () { btn.textContent = "Đã chép"; setTimeout(function () { btn.textContent = "Sao chép"; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { selectCode(btn); });
+      } else { selectCode(btn); }
+    });
+  });
+  function selectCode(btn) {
+    var code = btn.parentNode.querySelector("code");
+    var r = document.createRange(); r.selectNodeContents(code);
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    btn.textContent = "Ctrl+C";
+  }
+})();
+</script>
+
+</body>
+</html>
