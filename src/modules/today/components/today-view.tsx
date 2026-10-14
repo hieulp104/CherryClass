@@ -6,10 +6,7 @@ import { AnimatePresence, MotionConfig, motion, type Variants } from "motion/rea
 import {
   AlertTriangle,
   ArrowRight,
-  BookOpenCheck,
   CalendarCheck2,
-  CalendarClock,
-  CheckCircle2,
   ChevronRight,
   Clock,
   Gift,
@@ -25,14 +22,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { DayHero, phaseOf, type Phase } from "@/modules/today/components/day-hero";
+import { DayHero } from "@/modules/today/components/day-hero";
 import { Card, trackSpotlight } from "@/components/ui/card";
-import { Chip, Notice, type ChipTone } from "@/components/ui/feedback";
+import { Chip, type ChipTone } from "@/components/ui/feedback";
 import { CountUp } from "@/components/ui/fx";
 import { IconTile } from "@/components/ui/page";
-import type { SessionCard } from "@/modules/classes/classes.service";
 import type { AttentionGroup, AttentionKind, TodayData } from "@/modules/today/today.service";
-import { minutesUntil, vnNow } from "@/lib/dates";
+import { vnNow } from "@/lib/dates";
 import { cn, formatVnd, formatVndShort } from "@/lib/utils";
 
 // ─────────────── Chuyển động: một nhịp, một đường cong, không nảy ───────────────
@@ -73,27 +69,32 @@ function formatMoney(n: number) {
   return n >= 10_000_000 ? formatVndShort(n) : formatVnd(n);
 }
 
+/**
+ * Trang Tổng quan trả lời MỘT câu: hôm nay cô cần làm gì. Ba khối, không lặp thông tin:
+ *  1. Dải ngày — lời chào, ca cần mở, thước giờ các ca (thay cho thẻ lịch dạy riêng).
+ *  2. Ba số — thu tháng này · còn cần thu (kèm thanh phiếu theo trạng thái) · học sinh.
+ *  3. Việc cần chú ý — danh sách bấm vào là làm.
+ * Lịch dạy chi tiết, sĩ số từng lớp, phiếu theo trạng thái xem ở Lớp học / Học sinh / Thu tiền.
+ */
 export function TodayView({ data }: { data: TodayData }) {
   const time = useClock(data.now.time);
 
   return (
     <MotionConfig reducedMotion="user">
-      <motion.div variants={container} initial="hidden" animate="show">
-        {/* ─────────── Dải ngày: lời chào · ca cần mở · thước giờ ─────────── */}
+      <motion.div variants={container} initial="hidden" animate="show" className="space-y-4">
         <motion.div variants={rise}>
           <DayHero
             sessions={data.sessions}
             time={time}
             dateKey={data.now.dateKey}
             teacherName={data.teacherName}
-            quote={data.quote}
+            summary={data.summary}
           />
         </motion.div>
 
-        {/* ─────────── Số liệu nhanh: một bảng liền, chia ô bằng vạch mảnh ─────────── */}
         <motion.div
           variants={rise}
-          className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-card border border-line bg-line shadow-card xl:grid-cols-4"
+          className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-line bg-line shadow-card md:grid-cols-3"
         >
           <IncomeCard stats={data.stats} />
           <StatCard
@@ -104,7 +105,9 @@ export function TodayView({ data }: { data: TodayData }) {
             value={data.stats.outstanding}
             money
             hint={data.stats.outstandingStudents ? `${data.stats.outstandingStudents} em chưa đóng đủ` : "Không em nào còn nợ"}
-          />
+          >
+            <BillingMix billing={data.billing} />
+          </StatCard>
           <StatCard
             href="/hoc-sinh"
             label="Học sinh đang học"
@@ -112,21 +115,11 @@ export function TodayView({ data }: { data: TodayData }) {
             tone="primary"
             value={data.stats.activeStudents}
             hint={`${data.stats.classroomCount} lớp`}
+            className="hidden md:block"
           />
-          <SessionsStat sessions={data.sessions} time={time} />
         </motion.div>
 
-        {/* ─────────── Lịch hôm nay · Việc cần chú ý ─────────── */}
-        <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          <ScheduleCard sessions={data.sessions} time={time} summary={data.summary} />
-          <AttentionCard groups={data.attention} />
-        </div>
-
-        {/* ─────────── Phiếu thu · Sĩ số ─────────── */}
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <BillingCard billing={data.billing} />
-          <ClassroomCard classrooms={data.classrooms} />
-        </div>
+        <AttentionCard groups={data.attention} />
       </motion.div>
     </MotionConfig>
   );
@@ -143,6 +136,7 @@ function StatCard({
   money,
   hint,
   valueClass,
+  className,
   children,
 }: {
   href: string;
@@ -153,13 +147,14 @@ function StatCard({
   money?: boolean;
   hint: React.ReactNode;
   valueClass?: string;
+  className?: string;
   children?: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
       onPointerMove={trackSpotlight}
-      className="spotlight group relative min-w-0 bg-surface p-4 transition-colors hover:bg-surface-raised sm:p-5"
+      className={cn("spotlight group relative min-w-0 bg-surface p-4 transition-colors hover:bg-surface-raised sm:p-5", className)}
     >
         <div className="flex items-center gap-2">
           <IconTile
@@ -275,164 +270,6 @@ function Sparkline({ values, className }: { values: number[]; className?: string
   );
 }
 
-function SessionsStat({ sessions, time }: { sessions: SessionCard[]; time: string }) {
-  const live = sessions.filter((s) => s.status !== "CANCELLED");
-  const done = live.filter((s) => s.status === "COMPLETED").length;
-  const current = live.find((s) => phaseOf(s, time) === "live");
-  const next = live.find((s) => phaseOf(s, time) === "upcoming");
-  const hint = live.length === 0
-    ? "Hôm nay không có lịch dạy"
-    : current
-      ? `Đang học: ${current.classroom.name}`
-      : next
-        ? `Ca tiếp: ${next.startTime} · ${next.classroom.name}`
-        : done === live.length
-          ? "Đã xong mọi ca"
-          : "Còn ca chưa điểm danh";
-  return (
-    <StatCard href="/diem-danh" label="Ca hôm nay" icon={CalendarClock} tone="sky" value={live.length} hint={hint}>
-      {live.length > 0 && (
-        <div className="mt-3 flex gap-1" aria-label={`${done}/${live.length} ca đã xong`}>
-          {live.map((s, i) => (
-            <span key={s.id} className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
-              <motion.span
-                className="block h-full origin-left rounded-full bg-sky"
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: s.status === "COMPLETED" ? 1 : 0 }}
-                transition={{ duration: 0.6, delay: 0.5 + i * 0.08, ease: EASE }}
-              />
-            </span>
-          ))}
-        </div>
-      )}
-    </StatCard>
-  );
-}
-
-// ─────────────── Lịch dạy hôm nay ───────────────
-
-const PHASE_CHIP: Record<Phase, { label: string; tone: ChipTone; icon: LucideIcon }> = {
-  done: { label: "Đã xong", tone: "leaf", icon: CheckCircle2 },
-  cancelled: { label: "Đã hủy", tone: "muted", icon: Clock },
-  live: { label: "Đang học", tone: "sky", icon: BookOpenCheck },
-  upcoming: { label: "Sắp tới", tone: "muted", icon: Clock },
-  missed: { label: "Chưa điểm danh", tone: "amber", icon: CalendarCheck2 },
-};
-
-function ScheduleCard({
-  sessions,
-  time,
-  summary,
-}: {
-  sessions: SessionCard[];
-  time: string;
-  summary: TodayData["summary"];
-}) {
-  const students = sessions.filter((s) => s.status !== "CANCELLED").reduce((n, s) => n + s.studentCount, 0);
-  return (
-    <motion.div variants={rise} className="min-w-0">
-      <Card className="h-full p-5">
-        <h2 className="text-lg font-bold tracking-tight">Lịch dạy hôm nay</h2>
-        <p className="mt-1 text-sm text-muted">
-          {sessions.length ? `${sessions.length} ca · ${students} em` : "Không có ca nào"}
-        </p>
-
-        {sessions.length === 0 ? (
-          <Card variant="subtle" className="mt-4 flex h-40 flex-col items-center justify-center gap-2 text-sm text-muted">
-            <IconTile icon={<CalendarClock className="size-5" />} tone="sky" className="size-10" />
-            Một ngày để nghỉ ngơi — hoặc soạn bài thong thả.
-          </Card>
-        ) : (
-          <ol className="relative mt-4">
-            {/* Trục thời gian */}
-            <span className="absolute bottom-3 left-[3.6rem] top-3 w-px bg-line" aria-hidden />
-            {sessions.map((s, i) => (
-              <ScheduleRow key={s.id} session={s} time={time} index={i} />
-            ))}
-          </ol>
-        )}
-
-        {summary && (
-          <Notice tone="leaf" icon={ShieldCheck} className="mt-4">
-            Đã dạy {summary.sessions} ca, {summary.students} em
-            {summary.received > 0 ? ` · nhận ${formatVnd(summary.received)} hôm nay` : ""}.
-            {summary.needReminder > 0 ? ` ${summary.needReminder} phiếu cần nhắc.` : " Học phí đâu vào đấy."}
-          </Notice>
-        )}
-      </Card>
-    </motion.div>
-  );
-}
-
-function ScheduleRow({ session: s, time, index }: { session: SessionCard; time: string; index: number }) {
-  const phase = phaseOf(s, time);
-  const chip = PHASE_CHIP[phase];
-  const total = -minutesUntil(s.endTime, s.startTime);
-  const elapsed = -minutesUntil(s.startTime, time);
-  const progress = phase === "live" && total > 0 ? Math.min(1, elapsed / total) : 0;
-  const mins = minutesUntil(s.startTime, time);
-  const countdown = phase === "upcoming" ? (mins >= 60 ? `còn ${Math.floor(mins / 60)}g${mins % 60 ? ` ${mins % 60}p` : ""}` : `còn ${mins} phút`) : null;
-
-  return (
-    <motion.li
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.45, delay: 0.25 + index * 0.06, ease: EASE }}
-    >
-      <Link
-        href={`/diem-danh/${s.id}`}
-        className={cn(
-          "group relative flex items-center gap-3 rounded-control py-2.5 pr-2 transition-colors hover:bg-surface-subtle",
-          phase === "cancelled" && "opacity-60",
-        )}
-      >
-        <span className="w-11 shrink-0 text-right text-sm font-semibold tabular-nums">{s.startTime}</span>
-        {/* Mốc trên trục */}
-        <span className="relative z-10 grid size-3 shrink-0 place-items-center">
-          {phase === "live" && <span className="absolute inset-0 rounded-full bg-sky/40 motion-safe:animate-ping" />}
-          <span
-            className={cn(
-              "size-2.5 rounded-full ring-4 ring-surface",
-              phase === "done" && "bg-leaf",
-              phase === "live" && "bg-sky",
-              phase === "missed" && "bg-amber",
-              (phase === "upcoming" || phase === "cancelled") && "bg-line-strong",
-            )}
-          />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className={cn("truncate text-sm font-semibold", phase === "cancelled" && "line-through")}>
-            {s.classroom.name} · {s.shiftName}
-          </p>
-          <p className="truncate text-xs text-muted">
-            {s.startTime}–{s.endTime}
-            {s.room ? ` · ${s.room}` : ""} · {s.studentCount} em
-            {phase === "done" ? ` · có mặt ${s.presentCount}` : ""}
-          </p>
-          {/* Điện thoại: trạng thái xuống dòng để tên lớp không bị cắt. */}
-          <Chip tone={chip.tone} icon={chip.icon} className="mt-1.5 sm:hidden">
-            {countdown ?? chip.label}
-          </Chip>
-          {phase === "live" && (
-            <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-sky-soft">
-              <motion.span
-                className="block h-full origin-left rounded-full bg-sky"
-                initial={{ scaleX: 0 }}
-                animate={{ scaleX: progress }}
-                transition={{ duration: 0.9, delay: 0.5, ease: EASE }}
-              />
-            </span>
-          )}
-        </div>
-        <Chip tone={chip.tone} icon={chip.icon} className="hidden shrink-0 sm:inline-flex">
-          {countdown ?? chip.label}
-        </Chip>
-        <ChevronRight className="size-4 shrink-0 text-muted opacity-0 transition-[opacity,transform] duration-200 group-hover:translate-x-0.5 group-hover:opacity-100" />
-      </Link>
-    </motion.li>
-  );
-}
-
 // ─────────────── Việc cần chú ý ───────────────
 
 const ICON_TONE: Record<ChipTone, string> = {
@@ -449,8 +286,8 @@ const ICON_TONE: Record<ChipTone, string> = {
 function AttentionCard({ groups }: { groups: AttentionGroup[] }) {
   const [open, setOpen] = useState<AttentionKind | null>(null);
   return (
-    <motion.div variants={rise} className="min-w-0">
-      <Card className="h-full p-5">
+    <motion.div variants={rise}>
+      <Card className="p-5">
         <h2 className="flex items-center gap-2 text-lg font-bold tracking-tight">
           Việc cần chú ý
           {groups.length > 0 && <Chip tone="overdue">{groups.length}</Chip>}
@@ -462,7 +299,7 @@ function AttentionCard({ groups }: { groups: AttentionGroup[] }) {
             Không có việc nào cần chú ý. Mọi thứ đang trong hạn.
           </Card>
         ) : (
-          <ul className="mt-3 divide-y divide-line">
+          <ul className="mt-2 grid grid-cols-1 gap-x-10 lg:grid-cols-2 [&>li]:border-b [&>li]:border-line [&>li:last-child]:border-b-0 lg:[&>li:nth-last-child(2):nth-child(odd)]:border-b-0">
             {groups.map((g, gi) => (
               <AttentionRow
                 key={g.kind}
@@ -491,12 +328,7 @@ function AttentionRow({
   onToggle: () => void;
 }) {
   const meta = ATTENTION_META[g.kind];
-  const preview = g.items
-    .slice(0, 2)
-    .map((it) => it.label)
-    .join(", ");
   const itemTotal = g.itemTotal ?? g.total;
-  const more = itemTotal - Math.min(2, g.items.length);
   return (
     <motion.li
       initial={{ opacity: 0, y: 6 }}
@@ -512,15 +344,8 @@ function AttentionRow({
         <span className={cn("grid size-8 shrink-0 place-items-center rounded-[10px]", ICON_TONE[meta.tone])}>
           <meta.icon className="size-4" />
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold">{g.label}</span>
-          {!open && (
-            <span className="block truncate text-xs text-muted">
-              {preview}
-              {more > 0 ? ` và ${more} nữa` : ""}
-            </span>
-          )}
-        </span>
+        {/* Chỉ tên việc + số lượng; bấm mới mở danh sách các em. */}
+        <span className="min-w-0 flex-1 truncate text-sm font-semibold">{g.label}</span>
         <span className="shrink-0 text-sm font-bold tabular-nums">{g.total}</span>
         <ChevronRight
           className={cn("size-4 shrink-0 text-muted transition-transform duration-300", open && "rotate-90")}
@@ -567,22 +392,8 @@ function AttentionRow({
   );
 }
 
-// ─────────────── Thanh phân bố (phiếu thu, sĩ số) ───────────────
 
-function Bar({ value, max, index, color, className }: { value: number; max: number; index: number; color?: string; className?: string }) {
-  return (
-    <span className="block h-2 overflow-hidden rounded-full bg-surface-subtle">
-      <motion.span
-        className={cn("block h-full origin-left rounded-full", className)}
-        style={color ? { backgroundColor: color } : undefined}
-        initial={{ scaleX: 0 }}
-        whileInView={{ scaleX: max > 0 ? value / max : 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.9, delay: 0.15 + index * 0.06, ease: EASE }}
-      />
-    </span>
-  );
-}
+// ─────────────── Phiếu đang mở theo trạng thái — một thanh mảnh trong ô "Còn cần thu" ───────────────
 
 const BILLING_TONE: Record<TodayData["billing"][number]["tab"], string> = {
   READY: "bg-primary",
@@ -591,84 +402,33 @@ const BILLING_TONE: Record<TodayData["billing"][number]["tab"], string> = {
   OVERDUE: "bg-overdue",
 };
 
-function BillingCard({ billing }: { billing: TodayData["billing"] }) {
-  const open = billing.reduce((n, b) => n + b.count, 0);
-  const max = Math.max(1, ...billing.map((b) => b.count));
+/** Thanh chia theo số phiếu ở từng trạng thái + chú thích (có chữ, không chỉ dựa vào màu). */
+function BillingMix({ billing }: { billing: TodayData["billing"] }) {
+  const parts = billing.filter((b) => b.count > 0);
+  const total = parts.reduce((n, b) => n + b.count, 0);
+  if (total === 0) return null;
   return (
-    <motion.div variants={rise} className="min-w-0">
-      <Card className="h-full p-5">
-        <h2 className="text-lg font-bold tracking-tight">Phiếu thu theo trạng thái</h2>
-        <p className="mt-1 text-sm text-muted">{open} phiếu đang mở</p>
-        {open === 0 ? (
-          <Card variant="subtle" className="mt-4 flex h-32 items-center justify-center text-sm text-muted">
-            Không có phiếu nào đang chờ
-          </Card>
-        ) : (
-          <ol className="mt-4 space-y-3">
-            {billing.map((b, i) => (
-              <li key={b.tab}>
-                <Link
-                  href={`/thu-tien?tab=${b.tab}`}
-                  className="group -mx-2 block rounded-control px-2 py-1 transition-colors hover:bg-surface-subtle"
-                  aria-label={`${b.count} phiếu ${b.label}`}
-                >
-                  <span className="mb-1.5 flex items-baseline justify-between gap-2 text-sm">
-                    <span>{b.label}</span>
-                    <span className="font-semibold tabular-nums">
-                      <CountUp value={b.count} duration={0.9} />
-                    </span>
-                  </span>
-                  <Bar value={b.count} max={max} index={i} className={BILLING_TONE[b.tab]} />
-                </Link>
-              </li>
-            ))}
-          </ol>
-        )}
-      </Card>
-    </motion.div>
-  );
-}
-
-function ClassroomCard({ classrooms }: { classrooms: TodayData["classrooms"] }) {
-  const max = Math.max(1, ...classrooms.map((c) => c.count));
-  const total = classrooms.reduce((n, c) => n + c.count, 0);
-  return (
-    <motion.div variants={rise} className="min-w-0">
-      <Card className="h-full p-5">
-        <h2 className="text-lg font-bold tracking-tight">Sĩ số theo lớp</h2>
-        <p className="mt-1 text-sm text-muted">
-          {total} em · {classrooms.length} lớp
-        </p>
-        {classrooms.length === 0 ? (
-          <Card variant="subtle" className="mt-4 flex h-32 items-center justify-center text-sm text-muted">
-            Chưa có lớp nào
-          </Card>
-        ) : (
-          <ol className="mt-4 space-y-3">
-            {classrooms.map((c, i) => (
-              <li key={c.id}>
-                <Link
-                  href={`/hoc-sinh?lop=${c.id}`}
-                  className="group -mx-2 block rounded-control px-2 py-1 transition-colors hover:bg-surface-subtle"
-                  aria-label={`${c.count} học sinh lớp ${c.name}`}
-                >
-                  <span className="mb-1.5 flex items-baseline justify-between gap-2 text-sm">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="size-2 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
-                      <span className="truncate">{c.name}</span>
-                      <span className="text-xs text-muted">khối {c.grade}</span>
-                    </span>
-                    <span className="font-semibold tabular-nums">
-                      <CountUp value={c.count} duration={0.9} />
-                    </span>
-                  </span>
-                  <Bar value={c.count} max={max} index={i} color={c.color} />
-                </Link>
-              </li>
-            ))}
-          </ol>
-        )}
-      </Card>
-    </motion.div>
+    <div className="mt-3">
+      <span className="flex h-1.5 gap-0.5 overflow-hidden rounded-full" aria-hidden>
+        {parts.map((b, i) => (
+          <motion.span
+            key={b.tab}
+            className={cn("h-full origin-left rounded-full", BILLING_TONE[b.tab])}
+            style={{ flexGrow: b.count }}
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: 1 }}
+            transition={{ duration: 0.7, delay: 0.4 + i * 0.08, ease: EASE }}
+          />
+        ))}
+      </span>
+      <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-caption text-muted">
+        {parts.map((b) => (
+          <li key={b.tab} className="inline-flex items-center gap-1.5">
+            <span className={cn("size-1.5 rounded-full", BILLING_TONE[b.tab])} aria-hidden />
+            {b.label} <b className="font-semibold tabular-nums text-foreground">{b.count}</b>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

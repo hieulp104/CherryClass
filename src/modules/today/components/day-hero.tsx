@@ -8,7 +8,7 @@ import { Mascot, type MascotMood } from "@/components/brand/mascot";
 import { buttonVariants } from "@/components/ui/button";
 import type { SessionCard } from "@/modules/classes/classes.service";
 import { fullDate, minutesUntil, weekdayOf, WEEKDAY_LONG } from "@/lib/dates";
-import { cn, greetingFor } from "@/lib/utils";
+import { cn, formatVnd, greetingFor } from "@/lib/utils";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -52,13 +52,14 @@ export function DayHero({
   time,
   dateKey,
   teacherName,
-  quote,
+  summary = null,
 }: {
   sessions: SessionCard[];
   time: string;
   dateKey: string;
   teacherName: string;
-  quote: string;
+  /** Tổng kết sau ca cuối trong ngày (null khi chưa xong). */
+  summary?: DaySummary | null;
 }) {
   const hour = Number(time.slice(0, 2));
   const focus = pickFocus(sessions, time);
@@ -70,31 +71,66 @@ export function DayHero({
     <section className="bg-night relative isolate overflow-hidden rounded-sheet p-5 text-white shadow-pop ring-1 ring-inset ring-white/10 sm:p-7">
       <div className="night-grid absolute inset-0 -z-10" aria-hidden />
 
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-sm text-white/60">
-            {WEEKDAY_LONG[weekdayOf(dateKey)]}, {fullDate(dateKey)}
-          </p>
-          <h1 className="mt-1 text-[1.75rem] font-extrabold leading-tight tracking-tight text-balance sm:text-[2.25rem]">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-4 sm:gap-5">
+          <CalendarLeaf dateKey={dateKey} />
+          <h1 className="min-w-0 text-[1.6rem] font-extrabold leading-tight tracking-tight text-balance sm:text-[2.25rem]">
             {greetingFor(hour)}, {teacherName}
           </h1>
-          <p className="mt-1.5 max-w-xl text-sm text-white/70">{quote}</p>
         </div>
-        <Mascot mood={mood} size={92} className="-mr-1 -mt-2 hidden sm:block" />
+        <Mascot mood={mood} size={92} className="-my-2 -mr-1 hidden sm:block" />
       </div>
 
-      <FocusPanel focus={focus} time={time} allDone={allDone} empty={active.length === 0} />
+      <FocusPanel focus={focus} time={time} allDone={allDone} empty={active.length === 0} summary={summary} />
 
       {sessions.length > 0 && <DayRuler sessions={sessions} time={time} />}
     </section>
   );
 }
 
-function FocusPanel({ focus, time, allDone, empty }: { focus: SessionCard | null; time: string; allDone: boolean; empty: boolean }) {
+/** Tờ lịch nhỏ như lịch xé trên bàn: thứ ở dải trên, số ngày to, tháng ở dưới. */
+function CalendarLeaf({ dateKey }: { dateKey: string }) {
+  const [y, m, d] = dateKey.split("-");
+  return (
+    <time
+      dateTime={dateKey}
+      aria-label={`${WEEKDAY_LONG[weekdayOf(dateKey)]}, ${fullDate(dateKey)}`}
+      className="flex w-[3.75rem] shrink-0 flex-col overflow-hidden rounded-[14px] bg-white/[0.08] text-center ring-1 ring-inset ring-white/15 backdrop-blur-sm sm:w-[4.5rem]"
+    >
+      <span className="bg-white/15 py-0.5 text-[11px] font-bold sm:text-xs">{WEEKDAY_LONG[weekdayOf(dateKey)]}</span>
+      <span className="pt-1 text-[1.75rem] font-extrabold leading-none tabular-nums sm:text-[2.1rem]">{Number(d)}</span>
+      <span className="pb-1.5 pt-0.5 text-[11px] text-white/65 sm:text-xs" title={y}>
+        Tháng {Number(m)}
+      </span>
+    </time>
+  );
+}
+
+type DaySummary ={ sessions: number; students: number; received: number; needReminder: number };
+
+function FocusPanel({
+  focus,
+  time,
+  allDone,
+  empty,
+  summary,
+}: {
+  focus: SessionCard | null;
+  time: string;
+  allDone: boolean;
+  empty: boolean;
+  summary: DaySummary | null;
+}) {
   if (!focus) {
     return (
       <div className="mt-5 rounded-card border border-white/10 bg-white/[0.06] p-4 text-sm text-white/80 backdrop-blur-sm">
-        {empty ? "Hôm nay không có ca nào. Cô nghỉ ngơi nhé." : allDone ? "Đã điểm danh xong mọi ca hôm nay." : "Không còn ca nào cần mở."}
+        {empty
+          ? "Hôm nay không có ca nào. Cô nghỉ ngơi nhé."
+          : summary
+            ? `Hôm nay cô dạy ${summary.sessions} ca, ${summary.students} em${summary.received > 0 ? ` · nhận ${formatVnd(summary.received)}` : ""}.${summary.needReminder > 0 ? ` Còn ${summary.needReminder} phiếu cần nhắc.` : " Học phí đâu vào đấy."}`
+            : allDone
+              ? "Đã điểm danh xong mọi ca hôm nay."
+              : "Không còn ca nào cần mở."}
       </div>
     );
   }
@@ -204,8 +240,8 @@ function DayRuler({ sessions, time }: { sessions: SessionCard[]; time: string })
   const showNow = now >= 0 && now <= 100;
 
   return (
-    <div className="mt-6">
-      <div className="relative" style={{ height: lanes * 34 + 4 }}>
+    <div className="mt-5 md:mt-6">
+      <div className="relative hidden md:block" style={{ height: lanes * 34 + 4 }}>
         {placed.map(({ s, lane }, i) => {
           const phase = phaseOf(s, time);
           const left = pos(s.startTime);
@@ -248,7 +284,7 @@ function DayRuler({ sessions, time }: { sessions: SessionCard[]; time: string })
       </div>
 
       {/* Vạch giờ */}
-      <div className="relative mt-3 h-5 border-t border-white/15" aria-hidden>
+      <div className="relative mt-3 hidden h-5 border-t border-white/15 md:block" aria-hidden>
         {hours.map((h) => {
           const left = ((h - startH) / (endH - startH)) * 100;
           const major = (h - startH) % 2 === 0;
@@ -264,6 +300,37 @@ function DayRuler({ sessions, time }: { sessions: SessionCard[]; time: string })
           );
         })}
       </div>
+
+      {/* Điện thoại: vạch quá hẹp để ghi chữ → thêm hàng chip từng ca (giờ · lớp · trạng thái), vuốt ngang. */}
+      <ul className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 md:hidden" aria-label="Các ca hôm nay">
+        {placed.map(({ s }) => {
+          const phase = phaseOf(s, time);
+          return (
+            <li key={s.id} className="shrink-0">
+              <Link
+                href={`/diem-danh/${s.id}`}
+                className={cn(
+                  "flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.07] py-1.5 pl-2.5 pr-3 text-xs font-semibold text-white/90",
+                  phase === "cancelled" && "line-through opacity-60",
+                )}
+              >
+                <span className={cn("size-2 rounded-full", DOT[phase])} aria-hidden />
+                <span className="tabular-nums">{s.startTime}</span>
+                <span>{s.classroom.name}</span>
+                <span className="font-normal text-white/60">{PHASE_LABEL[phase]}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
+
+const DOT: Record<Phase, string> = {
+  done: "bg-leaf",
+  live: "bg-white",
+  missed: "bg-amber",
+  upcoming: "bg-white/40",
+  cancelled: "bg-white/20",
+};

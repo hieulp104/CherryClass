@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Chip, EmptyState, InvoiceStateChip } from "@/components/ui/feedback";
 import { CountUp } from "@/components/ui/fx";
 import { PageHeader, SectionTitle } from "@/components/ui/page";
+import { CherryTree } from "@/modules/portal/components/cherry-tree";
 import { BADGES, formatScore, selfComparison } from "@/modules/assignments/assignments.core";
 import type { StudentProgress } from "@/modules/assignments/assignments.service";
 import { portalHref, type FrameProps } from "@/modules/portal/components/portal-frame";
@@ -19,62 +20,15 @@ import { cn, formatDate, formatVnd } from "@/lib/utils";
 
 // ─────────────── Vườn cherry ───────────────
 
-/** Vị trí quả trên tán cây — cố định (giả ngẫu nhiên theo chỉ số) để mở lại vẫn y nguyên. */
-function fruitSpot(i: number) {
-  const golden = 2.399963; // góc vàng — rải đều như hoa hướng dương
-  const r = 22 + 70 * Math.sqrt((i + 0.5) / 60);
-  const a = i * golden;
-  return { x: 160 + r * Math.cos(a) * 1.25, y: 120 + r * Math.sin(a) * 0.82 };
-}
 
 export function GardenView({ progress, isParent, childName }: { progress: StudentProgress; isParent: boolean; childName: string }) {
   const reduce = useReducedMotion();
   const g = progress.garden;
-  const shown = Math.min(g.fruits, 60);
   return (
     <div className="space-y-4">
       <PageHeader title={isParent ? `Vườn cherry của ${childName}` : "Vườn cherry của em"} subtitle="+1 quả mỗi bài nộp đúng hạn · +1 quả mỗi tuần đi học đủ buổi" />
       <Card className="bg-soft grid grid-cols-1 items-center gap-2 overflow-hidden p-4 sm:p-6 lg:grid-cols-[1.2fr_1fr]">
-        <svg viewBox="0 0 320 260" className="mx-auto w-full max-w-md" role="img" aria-label={`Cây có ${g.fruits} quả cherry`}>
-          <ellipse cx="160" cy="246" rx="120" ry="10" fill="var(--c-leaf)" opacity="0.18" />
-          <path d="M150 250 Q148 200 154 170 L166 170 Q172 200 170 250 Z" fill="#92400E" />
-          <path d="M158 190 Q130 170 118 150 M162 185 Q192 165 206 146" stroke="#92400E" strokeWidth="7" fill="none" strokeLinecap="round" />
-          {[
-            [160, 112, 92],
-            [100, 132, 56],
-            [222, 130, 58],
-            [128, 82, 52],
-            [196, 80, 54],
-          ].map(([cx, cy, r], i) => (
-            <motion.circle
-              key={i}
-              cx={cx}
-              cy={cy}
-              r={r}
-              fill={i % 2 ? "#22C55E" : "#16A34A"}
-              initial={reduce ? false : { scale: 0.6, opacity: 0 }}
-              animate={{ scale: 1, opacity: 0.95 }}
-              transition={{ type: "spring", stiffness: 160, damping: 14, delay: i * 0.06 }}
-              style={{ transformOrigin: `${cx}px ${cy}px` }}
-            />
-          ))}
-          {Array.from({ length: shown }, (_, i) => {
-            const p = fruitSpot(i);
-            return (
-              <motion.g
-                key={i}
-                initial={reduce ? false : { y: -30, opacity: 0, scale: 0.4 }}
-                animate={{ y: 0, opacity: 1, scale: 1 }}
-                transition={{ type: "spring", stiffness: 300, damping: 12, delay: 0.35 + i * 0.035 }}
-                style={{ transformOrigin: `${p.x}px ${p.y}px` }}
-              >
-                <path d={`M${p.x} ${p.y - 6} q2 -6 6 -8`} stroke="#14532D" strokeWidth="1.4" fill="none" />
-                <circle cx={p.x} cy={p.y} r="6.5" fill="#E11D48" />
-                <circle cx={p.x - 2} cy={p.y - 2} r="1.8" fill="#fff" opacity="0.6" />
-              </motion.g>
-            );
-          })}
-        </svg>
+        <CherryTree fruits={g.fruits} upcoming={g.next ? g.next.at - g.fruits : 0} className="mx-auto w-full max-w-md" />
         {/* Số quả + tiến độ huy hiệu: dưới cây trên điện thoại, bên phải cây trên máy tính */}
         <div>
         <div className="flex items-center justify-center gap-2">

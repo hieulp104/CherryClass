@@ -3,13 +3,13 @@
 import { motion, useReducedMotion } from "motion/react";
 
 /**
- * Tranh nền trang đăng nhập — phong cảnh hoàng hôn nhiều lớp núi, sương, một con đường sáng
- * dẫn lên đỉnh và một người đang leo; dấu chân mờ phía sau. Minh họa câu
- * "Trên con đường thành công không có dấu chân của kẻ lười biếng".
+ * Tranh nền trang đăng nhập — phong cảnh BÌNH MINH trong trẻo: trời trắng sang hồng phấn, mặt trời trắng mềm,
+ * nhiều lớp núi từ hồng nhạt (xa) đến đỏ cherry (gần), sương trắng, một con đường sáng dẫn lên đỉnh và một
+ * người đang leo; dấu chân mờ phía sau. Minh họa câu "Trên con đường thành công không có dấu chân của kẻ lười biếng".
  *
- * Màu chuyển mượt bằng gradient + phối cảnh khí quyển (xa nhạt, gần đậm), sương làm mờ bằng blur,
- * phủ một lớp hạt nhẹ cho cảm giác giấy vẽ. Mọi giá trị cố định (không Math.random) để server và
- * trình duyệt vẽ giống hệt nhau.
+ * Chỉ dùng đỏ – trắng, nhiều khoảng trắng để dịu mắt; không viền tối. Màu chuyển mượt bằng gradient + phối cảnh
+ * khí quyển (xa nhạt, gần đậm), sương làm mờ bằng blur, phủ lớp hạt nhẹ cho cảm giác giấy vẽ.
+ * Mọi giá trị cố định (không Math.random) để server và trình duyệt vẽ giống hệt nhau.
  */
 export function LoginScene({ className }: { className?: string }) {
   const still = Boolean(useReducedMotion());
@@ -18,52 +18,47 @@ export function LoginScene({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 800 1000" preserveAspectRatio="xMidYMax slice" className={className} aria-hidden>
       <defs>
-        {/* Trời hoàng hôn: tím mận → cherry → hồng → đào */}
+        {/* Trời bình minh: trắng → hồng phấn rất nhạt → hồng phấn ở chân trời */}
         <linearGradient id="ls-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#2E0A1E" />
-          <stop offset="0.28" stopColor="#7A1238" />
-          <stop offset="0.5" stopColor="#C81E4E" />
-          <stop offset="0.66" stopColor="#F05A72" />
-          <stop offset="0.78" stopColor="#FB9A8C" />
-          <stop offset="1" stopColor="#FDC9A0" />
+          <stop offset="0" stopColor="#FFFFFF" />
+          <stop offset="0.35" stopColor="#FFF5F7" />
+          <stop offset="0.58" stopColor="#FFE4EA" />
+          <stop offset="0.7" stopColor="#FECDD8" />
+          <stop offset="1" stopColor="#FDA4B8" />
         </linearGradient>
         <radialGradient id="ls-sun" cx="0.5" cy="0.5" r="0.5">
-          <stop offset="0" stopColor="#FFF7EC" />
-          <stop offset="0.18" stopColor="#FFE2C2" />
-          <stop offset="0.42" stopColor="#FDB494" stopOpacity="0.55" />
-          <stop offset="1" stopColor="#F05A72" stopOpacity="0" />
+          <stop offset="0" stopColor="#FFFFFF" />
+          <stop offset="0.22" stopColor="#FFFFFF" stopOpacity="0.9" />
+          <stop offset="0.5" stopColor="#FFE4EA" stopOpacity="0.5" />
+          <stop offset="1" stopColor="#FFE4EA" stopOpacity="0" />
         </radialGradient>
         <linearGradient id="ls-r1" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#F7A7A6" />
-          <stop offset="1" stopColor="#EC7F8E" />
+          <stop offset="0" stopColor="#FECDD3" />
+          <stop offset="1" stopColor="#FBB1BE" />
         </linearGradient>
         <linearGradient id="ls-r2" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#D9506A" />
-          <stop offset="1" stopColor="#A31646" />
+          <stop offset="0" stopColor="#FB8A9E" />
+          <stop offset="1" stopColor="#F05A78" />
         </linearGradient>
         <linearGradient id="ls-r3" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#7E1135" />
-          <stop offset="1" stopColor="#4A0820" />
+          <stop offset="0" stopColor="#E8325A" />
+          <stop offset="1" stopColor="#C81E4A" />
         </linearGradient>
         <linearGradient id="ls-r4" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#3A0718" />
-          <stop offset="1" stopColor="#22040F" />
+          <stop offset="0" stopColor="#B4153F" />
+          <stop offset="1" stopColor="#9F1239" />
         </linearGradient>
         <linearGradient id="ls-mist" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#FFE6DC" stopOpacity="0" />
-          <stop offset="0.5" stopColor="#FFE6DC" stopOpacity="0.45" />
-          <stop offset="1" stopColor="#FFE6DC" stopOpacity="0" />
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0" />
+          <stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.6" />
+          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
         </linearGradient>
-        {/* Con đường sáng dần về phía mặt trời */}
+        {/* Con đường trắng sáng dần về phía mặt trời */}
         <linearGradient id="ls-path" x1="0" y1="1" x2="0" y2="0">
-          <stop offset="0" stopColor="#FFD9C4" stopOpacity="0.85" />
-          <stop offset="0.6" stopColor="#FFE9D6" stopOpacity="0.7" />
-          <stop offset="1" stopColor="#FFF4E6" stopOpacity="0.95" />
+          <stop offset="0" stopColor="#FFF1F3" stopOpacity="0.9" />
+          <stop offset="0.6" stopColor="#FFFFFF" stopOpacity="0.85" />
+          <stop offset="1" stopColor="#FFFFFF" stopOpacity="1" />
         </linearGradient>
-        <radialGradient id="ls-vignette" cx="0.5" cy="0.45" r="0.75">
-          <stop offset="0.55" stopColor="#000" stopOpacity="0" />
-          <stop offset="1" stopColor="#14020A" stopOpacity="0.35" />
-        </radialGradient>
         <filter id="ls-soft" x="-20%" y="-50%" width="140%" height="200%">
           <feGaussianBlur stdDeviation="14" />
         </filter>
@@ -73,65 +68,43 @@ export function LoginScene({ className }: { className?: string }) {
         {/* Hạt giấy vẽ */}
         <filter id="ls-grain">
           <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" />
-          <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.07 0" />
+          <feColorMatrix values="0 0 0 0 0.6  0 0 0 0 0.1  0 0 0 0 0.2  0 0 0 0.05 0" />
         </filter>
       </defs>
 
       <rect width="800" height="1000" fill="url(#ls-sky)" />
 
-      {/* Sao mờ trên vòm trời */}
-      {[
-        [70, 70, 1.2],
-        [190, 130, 0.9],
-        [330, 60, 1],
-        [470, 110, 0.8],
-        [720, 80, 1.1],
-        [620, 170, 0.7],
-        [260, 210, 0.7],
-      ].map(([x, y, r], i) => (
-        <motion.circle
-          key={i}
-          cx={x}
-          cy={y}
-          r={r}
-          fill="#FFE4E6"
-          initial={{ opacity: 0.35 }}
-          animate={still ? undefined : { opacity: [0.2, 0.6, 0.2] }}
-          transition={{ duration: 4 + (i % 3), repeat: Infinity, delay: i * 0.6 }}
-        />
-      ))}
-
-      {/* Mặt trời lặn sau dãy núi xa */}
+      {/* Mặt trời mọc sau dãy núi xa — quầng trắng mềm */}
       <motion.circle
         cx="560"
         cy="610"
         r="330"
         fill="url(#ls-sun)"
         style={{ transformOrigin: "560px 610px" }}
-        animate={still ? undefined : { scale: [1, 1.04, 1], opacity: [0.95, 1, 0.95] }}
+        animate={still ? undefined : { scale: [1, 1.04, 1], opacity: [0.9, 1, 0.9] }}
         transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
       />
-      <circle cx="560" cy="610" r="46" fill="#FFF6EA" opacity="0.95" />
+      <circle cx="560" cy="610" r="46" fill="#FFFFFF" />
 
-      {/* Mây mỏng */}
+      {/* Mây trắng mỏng trôi chậm */}
       <motion.g
-        opacity="0.35"
+        opacity="0.75"
         filter="url(#ls-soft)"
         animate={still ? undefined : { x: [0, 30, 0] }}
         transition={{ duration: 30, repeat: Infinity, ease: "easeInOut" }}
       >
-        <ellipse cx="200" cy="430" rx="190" ry="16" fill="#FFD6CF" />
-        <ellipse cx="610" cy="480" rx="170" ry="12" fill="#FFE0D2" />
-        <ellipse cx="420" cy="530" rx="140" ry="9" fill="#FFE8DA" />
+        <ellipse cx="200" cy="430" rx="190" ry="16" fill="#FFFFFF" />
+        <ellipse cx="610" cy="480" rx="170" ry="12" fill="#FFFFFF" />
+        <ellipse cx="420" cy="530" rx="140" ry="9" fill="#FFF5F7" />
       </motion.g>
 
       {/* Chim xa */}
       <motion.g
-        stroke="#3A0718"
+        stroke="#9F1239"
         strokeWidth="1.6"
         fill="none"
         strokeLinecap="round"
-        opacity="0.55"
+        opacity="0.45"
         animate={still ? undefined : { x: [0, -40], y: [0, -8] }}
         transition={{ duration: 22, repeat: Infinity, repeatType: "mirror", ease: "easeInOut" }}
       >
@@ -144,7 +117,6 @@ export function LoginScene({ className }: { className?: string }) {
       <path
         d="M0 650 C 80 612, 150 602, 220 626 C 290 650, 340 592, 420 577 C 500 562, 560 612, 630 602 C 700 592, 760 562, 800 572 V1000 H0 Z"
         fill="url(#ls-r1)"
-        opacity="0.92"
       />
       <rect x="-40" y="610" width="880" height="140" fill="url(#ls-mist)" filter="url(#ls-soft)" />
 
@@ -160,7 +132,6 @@ export function LoginScene({ className }: { className?: string }) {
         height="120"
         fill="url(#ls-mist)"
         filter="url(#ls-soft)"
-        opacity="0.8"
         animate={still ? undefined : { x: [-60, -20, -60] }}
         transition={{ duration: 26, repeat: Infinity, ease: "easeInOut" }}
       />
@@ -185,45 +156,45 @@ export function LoginScene({ className }: { className?: string }) {
           cy={st.y}
           rx={3.6 * st.s}
           ry={6.2 * st.s}
-          fill="#7E1135"
+          fill="#E11D48"
           transform={`rotate(${st.angle} ${st.x} ${st.y})`}
           initial={still ? false : { opacity: 0 }}
-          animate={{ opacity: 0.32 }}
+          animate={{ opacity: 0.38 }}
           transition={{ delay: 0.6 + i * 0.12, duration: 0.6 }}
         />
       ))}
 
       {/* Người đang leo (bóng) */}
-      <g transform="translate(523 776)" fill="#2A0612">
+      <g transform="translate(523 776)" fill="#881337">
         <circle cx="0" cy="-19" r="3.6" />
         <path d="M-2.5 -15 L2.8 -15 L3.6 -4 L5.5 6 L3 6.5 L0.6 -2 L-1.2 6.5 L-3.8 6 L-2.6 -4 Z" />
         <rect x="2.6" y="-14" width="4" height="7.5" rx="1.6" />
-        <path d="M-2.6 -12 L-7 -4" stroke="#2A0612" strokeWidth="1.4" strokeLinecap="round" />
-        <path d="M-7.4 -4 L-8.6 7" stroke="#2A0612" strokeWidth="1" strokeLinecap="round" />
+        <path d="M-2.6 -12 L-7 -4" stroke="#881337" strokeWidth="1.4" strokeLinecap="round" />
+        <path d="M-7.4 -4 L-8.6 7" stroke="#881337" strokeWidth="1" strokeLinecap="round" />
       </g>
 
-      {/* Cờ nhỏ trên đỉnh */}
-      <line x1="540.5" y1="694" x2="540.5" y2="664" stroke="#FFF4E6" strokeWidth="1.6" strokeLinecap="round" />
+      {/* Cờ đỏ nhỏ trên đỉnh */}
+      <line x1="540.5" y1="694" x2="540.5" y2="664" stroke="#881337" strokeWidth="1.6" strokeLinecap="round" />
       <motion.path
         d="M541.5 665 L560 671 L541.5 677 Z"
-        fill="#FDBA74"
+        fill="#E11D48"
         style={{ transformOrigin: "541.5px 671px" }}
         animate={still ? undefined : { skewY: [0, -7, 0], scaleX: [1, 0.88, 1] }}
         transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
       />
 
-      {/* Tiền cảnh tối */}
+      {/* Tiền cảnh */}
       <path d="M0 942 C 200 902, 420 962, 800 920 V1000 H0 Z" fill="url(#ls-r4)" />
 
       {/* Cành hoa tiền cảnh góc phải trên — thon dần, hoa 5 cánh, bông xa hơi mờ cho có chiều sâu.
           Dịch xuống vì khung ngang (slice) cắt bớt mép trên. */}
       <g transform="translate(0 48)">
-        <g stroke="#1E030C" fill="none" strokeLinecap="round">
-          <path d="M830 18 C 790 44, 756 66, 722 98" strokeWidth="9" />
-          <path d="M722 98 C 690 128, 652 150, 612 166" strokeWidth="5.5" />
-          <path d="M612 166 C 590 174, 570 178, 548 180" strokeWidth="2.6" />
-          <path d="M748 76 C 760 104, 764 132, 760 160" strokeWidth="3.6" />
-          <path d="M690 124 C 686 146, 676 164, 660 178" strokeWidth="2.4" />
+        <g stroke="#7A1430" fill="none" strokeLinecap="round">
+          <path d="M830 18 C 790 44, 756 66, 722 98" strokeWidth="8" />
+          <path d="M722 98 C 690 128, 652 150, 612 166" strokeWidth="5" />
+          <path d="M612 166 C 590 174, 570 178, 548 180" strokeWidth="2.4" />
+          <path d="M748 76 C 760 104, 764 132, 760 160" strokeWidth="3.2" />
+          <path d="M690 124 C 686 146, 676 164, 660 178" strokeWidth="2.2" />
         </g>
         <g filter="url(#ls-blur2)" opacity="0.75">
           <Blossom x={772} y={52} r={10} rot={10} tone={2} />
@@ -234,9 +205,9 @@ export function LoginScene({ className }: { className?: string }) {
         <Blossom x={612} y={166} r={12} rot={30} tone={2} />
         <Blossom x={660} y={178} r={9.5} rot={4} tone={0} />
         <Blossom x={552} y={180} r={8.5} rot={52} tone={1} />
-        <circle cx="690" cy="124" r="4.5" fill="#F9A8C8" />
-        <circle cx="584" cy="176" r="3.8" fill="#FBCFE8" />
-        <circle cx="748" cy="78" r="4" fill="#FDE2EC" />
+        <circle cx="690" cy="124" r="4.5" fill="#FB7185" />
+        <circle cx="584" cy="176" r="3.8" fill="#FDA4AF" />
+        <circle cx="748" cy="78" r="4" fill="#FECDD3" />
       </g>
 
       {/* Cánh hoa rơi */}
@@ -252,25 +223,23 @@ export function LoginScene({ className }: { className?: string }) {
           cy={200}
           rx="3.2"
           ry="2"
-          fill="#FBCFE8"
+          fill="#FB7185"
           initial={{ opacity: 0 }}
-          animate={still ? { opacity: 0 } : { x: [0, -120, -260], y: [0, 380, 760], rotate: [0, 180, 360], opacity: [0, 0.9, 0] }}
+          animate={still ? { opacity: 0 } : { x: [0, -120, -260], y: [0, 380, 760], rotate: [0, 180, 360], opacity: [0, 0.8, 0] }}
           transition={{ duration: p.dur, repeat: Infinity, delay: p.d, ease: "linear" }}
         />
       ))}
 
       {/* Lớp hạt giấy vẽ */}
-      <rect width="800" height="1000" filter="url(#ls-grain)" style={{ mixBlendMode: "overlay" }} />
-      {/* Tối nhẹ ở viền để chữ trắng nổi rõ */}
-      <rect width="800" height="1000" fill="url(#ls-vignette)" />
+      <rect width="800" height="1000" filter="url(#ls-grain)" />
     </svg>
   );
 }
 
 const BLOSSOM_TONES = [
-  { petal: "#FDE2EC", edge: "#F9A8C8" },
-  { petal: "#FBCFE8", edge: "#F472B6" },
-  { petal: "#FFF1F5", edge: "#FBCFE8" },
+  { petal: "#FFFFFF", edge: "#FDA4AF" },
+  { petal: "#FFE4E6", edge: "#FB7185" },
+  { petal: "#FFF1F2", edge: "#FECDD3" },
 ];
 
 /** Hoa 5 cánh: cánh tròn hơi nhọn, nhụy vàng, chấm đỏ ở gốc cánh. */
@@ -291,7 +260,7 @@ function Blossom({ x, y, r, rot, tone }: { x: number; y: number; r: number; rot:
           transform={`rotate(${a})`}
         />
       ))}
-      <circle r={r * 0.26} fill="#BE185D" opacity="0.55" />
+      <circle r={r * 0.26} fill="#E11D48" opacity="0.5" />
       {[0, 72, 144, 216, 288].map((a) => (
         <circle key={`s${a}`} cx={0} cy={-r * 0.32} r={r * 0.07} fill="#FCD34D" transform={`rotate(${a + 36})`} />
       ))}

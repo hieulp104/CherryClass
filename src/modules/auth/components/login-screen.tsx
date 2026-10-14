@@ -5,6 +5,9 @@ import { motion } from "motion/react";
 import { Eye, EyeOff } from "lucide-react";
 
 import { LoginScene } from "@/components/brand/login-scene";
+import GlowCursor from "@/components/fx/glow-cursor";
+import ShinyText from "@/components/fx/shiny-text";
+import { useThemeMode } from "@/components/layout/theme-toggle";
 import { Mascot } from "@/components/brand/mascot";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/form";
@@ -14,6 +17,7 @@ import { clearPageCache } from "@/lib/page-cache";
 export function LoginScreen() {
   const [state, action, pending] = useActionState<LoginState, FormData>(loginAction, undefined);
   const [show, setShow] = useState(false);
+  const { mode } = useThemeMode();
   // Tới màn đăng nhập = phiên trước đã kết thúc: bỏ các trang của người trước còn cache ngoại tuyến.
   useEffect(clearPageCache, []);
 
@@ -22,24 +26,45 @@ export function LoginScreen() {
       {/* Khối thương hiệu: tranh con đường lên đỉnh + câu châm ngôn ở giữa */}
       <section className="relative hidden overflow-hidden lg:flex lg:items-center lg:justify-center lg:p-12">
         <LoginScene className="absolute inset-0 size-full" />
-        <p className="absolute left-12 top-10 text-xl font-extrabold text-white">TeamCherry</p>
+        {/* Tranh luôn là cảnh bình minh sáng (cả khi app ở chế độ tối) nên chữ dùng màu cố định của tranh. */}
+        <p className="absolute left-12 top-10 text-xl font-extrabold text-[#9F1239]">
+          Team<span className="text-[#E11D48]">Cherry</span>
+        </p>
         <motion.h1
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 160, damping: 20, delay: 0.15 }}
-          className="relative -mt-24 max-w-lg text-center text-4xl font-extrabold leading-tight text-white drop-shadow-[0_2px_12px_rgb(159_18_57/0.35)] xl:text-5xl"
+          className="relative -mt-24 max-w-lg text-center text-4xl font-extrabold leading-tight drop-shadow-[0_1px_14px_rgb(255_255_255/0.9)] xl:text-5xl"
         >
-          Trên con đường thành công không có dấu chân của kẻ lười biếng.
+          {/* Dải sáng chạy qua chữ (React Bits · ShinyText) */}
+          <ShinyText
+            text="Trên con đường thành công không có dấu chân của kẻ lười biếng."
+            color="#9F1239"
+            shineColor="#FB7185"
+            speed={2}
+            shineWidth={40}
+            softness={0.8}
+            trigger="loop"
+            delay={0}
+            angle={120}
+            bands={1}
+            glow={0}
+            direction="left"
+            easing="smooth"
+          />
         </motion.h1>
       </section>
 
-      {/* Form */}
-      <section className="bg-soft flex items-center justify-center px-5 py-10">
+      {/* Form — nền có vệt sáng cherry đi theo con trỏ (React Bits · GlowCursor) */}
+      <section className="bg-soft relative flex items-center justify-center overflow-hidden px-5 py-10">
+        <div className="absolute inset-0" aria-hidden>
+          <GlowCursor color="#F43F5E" intensity={1.3} trailWidth={3} linger={1.4} glow={1.2} clickBurst theme={mode} />
+        </div>
         <motion.div
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 220, damping: 22 }}
-          className="w-full max-w-sm"
+          className="relative z-[1] w-full max-w-sm"
         >
           <div className="mb-6 flex flex-col items-center text-center lg:hidden">
             <Mascot mood="happy" size={120} />
