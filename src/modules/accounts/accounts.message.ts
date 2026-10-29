@@ -20,5 +20,5 @@ export function credentialMessage(c: Credential, appUrl: string, teacherName: st
   if (c.password === null) {
     return `${who}, ${teacherName} đã thêm con ${c.studentName} vào tài khoản TeamCherry của anh/chị (đăng nhập: ${c.username}). Anh/chị mở lại app là thấy ạ 🍒`;
   }
-  return `${who}, ${what} 🍒\nĐăng nhập: ${appUrl}/login\nTên đăng nhập: ${c.username}\nMật khẩu tạm: ${c.password}\n(Lần đầu vào, app sẽ nhờ đổi mật khẩu mới.)`;
+  return `${who}, ${what} 🍒\nĐăng nhập: ${appUrl}/login\nTên đăng nhập: ${c.username}\nMật khẩu tạm: ${c.password}\n(Mật khẩu tạm dùng được 7 ngày. Lần đầu vào, app sẽ nhờ đổi mật khẩu mới.)`;
 }

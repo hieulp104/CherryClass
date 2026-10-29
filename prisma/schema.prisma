@@ -111,6 +111,11 @@ model User {
   isActive           Boolean   @default(true) @map("is_active")
   /// Tài khoản cô cấp cho học sinh/phụ huynh: lần đầu đăng nhập phải đổi mật khẩu.
   mustChangePassword Boolean   @default(false) @map("must_change_password")
+  /// Mật khẩu tạm cô cấp chỉ dùng được tới lúc này (chống dò "cherryNNNN"). null = mật khẩu tự đặt.
+  tempPasswordExpiresAt DateTime? @map("temp_password_expires_at")
+  /// Số lần sai mật khẩu liên tiếp — tính khóa tạm (auth.core.ts). Về 0 khi đăng nhập đúng / cô cấp lại.
+  failedLogins       Int       @default(0) @map("failed_logins")
+  lockedUntil        DateTime? @map("locked_until")
   /// Chỉ có ở tài khoản HỌC SINH (khối 9) — một học sinh một tài khoản.
   studentId          String?   @unique @map("student_id")
   lastLoginAt        DateTime? @map("last_login_at")

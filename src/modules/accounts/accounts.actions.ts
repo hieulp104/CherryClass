@@ -12,6 +12,7 @@ import {
   tempPassword,
   type Credential,
 } from "@/modules/accounts/accounts.service";
+import { tempPasswordExpiry } from "@/modules/auth/auth.core";
 import { getCurrentUser } from "@/modules/auth/auth.service";
 import { writeAuditLog } from "@/shared/audit/audit.service";
 import { prisma } from "@/shared/prisma/prisma.service";
@@ -80,7 +81,15 @@ export async function resetPasswordAction(userId: string): Promise<ActionResult<
   await prisma.$transaction(async (tx) => {
     await tx.user.update({
       where: { id: userId },
-      data: { passwordHash: await bcrypt.hash(password, 10), mustChangePassword: true, isActive: true },
+      // Cấp lại = mở khóa luôn (phụ huynh bị khóa vì nhập sai nhiều lần thì nhờ cô cấp lại).
+      data: {
+        passwordHash: await bcrypt.hash(password, 10),
+        mustChangePassword: true,
+        tempPasswordExpiresAt: tempPasswordExpiry(new Date()),
+        failedLogins: 0,
+        lockedUntil: null,
+        isActive: true,
+      },
     });
     await writeAuditLog(tx, { actorId: g.user.id, action: "ACCOUNT_RESET_PASSWORD", entity: "User", entityId: userId });
   });
@@ -93,7 +102,10 @@ export async function setAccountActiveAction(userId: string, active: boolean): P
   const target = await prisma.user.findUnique({ where: { id: userId } });
   if (!target || target.role === "TEACHER") return fail("NOT_FOUND");
   await prisma.$transaction(async (tx) => {
-    await tx.user.update({ where: { id: userId }, data: { isActive: active } });
+    await tx.user.update({
+      where: { id: userId },
+      data: active ? { isActive: true, failedLogins: 0, lockedUntil: null } : { isActive: false },
+    });
     await writeAuditLog(tx, { actorId: g.user.id, action: active ? "ACCOUNT_UNLOCK" : "ACCOUNT_LOCK", entity: "User", entityId: userId });
   });
   if (target.studentId) revalidatePath(`/hoc-sinh/${target.studentId}`);

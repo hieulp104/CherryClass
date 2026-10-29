@@ -1,12 +1,84 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { cache } from "react";
 
 import type { SessionUser } from "@/common/permissions/permissions";
+import { afterFailedLogin, ipBlocked, loginGate, recentFailures } from "@/modules/auth/auth.core";
 import { authConfig } from "@/modules/auth/auth.config";
 import { loginSchema } from "@/modules/auth/auth.schema";
 import { prisma } from "@/shared/prisma/prisma.service";
+
+/** Lý do từ chối đăng nhập mà form được phép nói rõ (code đi vào URL lỗi — không lộ gì nhạy cảm). */
+export class LoginLocked extends CredentialsSignin {
+  code = "locked";
+}
+export class LoginBusy extends CredentialsSignin {
+  code = "busy";
+}
+export class TempPasswordExpired extends CredentialsSignin {
+  code = "expired";
+}
+
+/** Lần sai theo IP — trong bộ nhớ (một máy chủ). Không có IP (chạy thẳng không qua proxy) thì bỏ qua. */
+const ipFailures = new Map<string, number[]>();
+
+function clientIp(request: Request): string | null {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return forwarded || request.headers.get("x-real-ip") || null;
+}
+
+function noteIpFailure(ip: string | null) {
+  if (!ip) return;
+  const now = Date.now();
+  ipFailures.set(ip, [...recentFailures(ipFailures.get(ip) ?? [], now), now]);
+  if (ipFailures.size > 5000) {
+    for (const [k, v] of ipFailures) if (recentFailures(v, now).length === 0) ipFailures.delete(k);
+  }
+}
+
+/**
+ * So mật khẩu trong transaction có khóa dòng (FOR UPDATE): các lần thử cùng lúc vào một tài khoản
+ * phải xếp hàng, nên không ai lách được ngưỡng khóa bằng cách gửi hàng trăm yêu cầu song song.
+ */
+async function verifyLogin(login: string, password: string): Promise<{ id: string; name: string } | null> {
+  return prisma.$transaction(
+    async (tx) => {
+      const found = await tx.user.findFirst({
+        where: { OR: [{ username: login }, { email: login }] },
+        select: { id: true },
+      });
+      if (!found) return null;
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${found.id} FOR UPDATE`;
+      const user = await tx.user.findUniqueOrThrow({
+        where: { id: found.id },
+        select: {
+          id: true,
+          displayName: true,
+          passwordHash: true,
+          isActive: true,
+          mustChangePassword: true,
+          tempPasswordExpiresAt: true,
+          failedLogins: true,
+          lockedUntil: true,
+        },
+      });
+      if (!user.isActive) return null;
+      const now = new Date();
+      const gate = loginGate(user, now);
+      if (!gate.ok && gate.reason === "LOCKED") throw new LoginLocked();
+      if (!(await bcrypt.compare(password, user.passwordHash))) {
+        await tx.user.update({ where: { id: user.id }, data: afterFailedLogin(user.failedLogins, user.mustChangePassword, now) });
+        return null;
+      }
+      // Đúng mật khẩu nhưng là mật khẩu tạm đã quá hạn → nhờ cô cấp lại (không tính là lần sai).
+      if (!gate.ok) throw new TempPasswordExpired();
+      await tx.user.update({ where: { id: user.id }, data: { lastLoginAt: now, failedLogins: 0, lockedUntil: null } });
+      return { id: user.id, name: user.displayName };
+    },
+    { maxWait: 5000, timeout: 10000 },
+  );
+}
 
 async function loadSessionUser(userId: string): Promise<SessionUser | null> {
   const user = await prisma.user.findFirst({
@@ -44,18 +116,14 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         login: { label: "Email / SĐT / mã học sinh", type: "text" },
         password: { label: "Mật khẩu", type: "password" },
       },
-      async authorize(raw) {
+      async authorize(raw, request) {
         const parsed = loginSchema.safeParse(raw);
         if (!parsed.success) return null;
-        const login = parsed.data.login;
-        const user = await prisma.user.findFirst({
-          where: { OR: [{ username: login }, { email: login }] },
-          select: { id: true, username: true, displayName: true, passwordHash: true, isActive: true },
-        });
-        if (!user || !user.isActive) return null;
-        if (!(await bcrypt.compare(parsed.data.password, user.passwordHash))) return null;
-        await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-        return { id: user.id, name: user.displayName };
+        const ip = clientIp(request);
+        if (ip && ipBlocked(ipFailures.get(ip) ?? [], Date.now())) throw new LoginBusy();
+        const user = await verifyLogin(parsed.data.login, parsed.data.password);
+        if (!user) noteIpFailure(ip);
+        return user;
       },
     }),
   ],
@@ -105,7 +173,7 @@ export async function changeOwnPassword(userId: string, current: string, next: s
   if (!user || !(await bcrypt.compare(current, user.passwordHash))) return { ok: false as const, reason: "WRONG_CURRENT" as const };
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash: await bcrypt.hash(next, 10), mustChangePassword: false },
+    data: { passwordHash: await bcrypt.hash(next, 10), mustChangePassword: false, tempPasswordExpiresAt: null },
   });
   return { ok: true as const };
 }

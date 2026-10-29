@@ -17,7 +17,7 @@ Ba nguyên tắc: **không bao giờ tính sai tiền** · tinh tế với con n
 
 | Hạng mục | Dùng | Ghi chú |
 |---|---|---|
-| Framework | Next.js 16.2 (App Router) | `proxy.ts` thay `middleware.ts`. Đọc `node_modules/next/dist/docs/` khi đụng file convention |
+| Framework | Next.js 16.4 (App Router) | `proxy.ts` thay `middleware.ts`. Đọc `node_modules/next/dist/docs/` khi đụng file convention |
 | DB | PostgreSQL 15 (Docker, cổng **5435**) + Prisma 7 | Prisma 7 **không tự generate** sau `migrate dev` — chạy `npx prisma generate` |
 | Auth | Auth.js v5 Credentials, JWT 30 ngày | Đăng nhập bằng `username`: email (cô) / SĐT / mã HS |
 | File | MinIO (Docker, cổng **9200** API / **9201** console) | Đọc/ghi luôn qua `/api/tep` để kiểm quyền — không cấp presigned URL cho trình duyệt |
@@ -74,6 +74,9 @@ src/
 - Không xếp hạng, không so với bạn. Điểm < 5 luôn kèm lời động viên (`lowScoreCheer`) và ô "cần ôn".
 - Học sinh đăng nhập bằng SĐT của em (hoặc mã HS); phụ huynh bằng SĐT phụ huynh — anh chị em dùng chung một tài khoản.
   `normalizeLogin()` dùng chung cho form đăng nhập và lúc cấp tài khoản.
+- Chống dò mật khẩu (`auth.core.ts`, có test): sai 5 lần → khóa tạm (mật khẩu tạm: gấp đôi mỗi lần, tới 24h; tự đặt: 15 phút);
+  mật khẩu tạm hết hạn sau 7 ngày; 20 lần sai/15 phút theo IP (`x-forwarded-for` — reverse proxy phải GHI ĐÈ header này).
+  Cô "Cấp lại mật khẩu" hoặc mở khóa tài khoản = xóa khóa. Cột thời gian lưu UTC — SQL tay dùng `now() AT TIME ZONE 'UTC'` (DB đặt giờ VN).
 - Ảnh bài làm xử lý ở trình duyệt (`lib/image-prep.ts`): xoay theo EXIF, thu nhỏ 1800px, làm nét (`documentLut`, có test).
 - Hiệu ứng chuyển trang ở cổng nằm TRONG `PortalFrame` (motion.main) — transform ở tổ tiên làm hỏng thanh điều hướng `fixed`.
 

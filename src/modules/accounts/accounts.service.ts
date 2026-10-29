@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 
 import type { Prisma } from "@/generated/prisma/client";
 import type { Credential } from "@/modules/accounts/accounts.message";
+import { tempPasswordExpiry } from "@/modules/auth/auth.core";
 import { normalizeLogin } from "@/modules/auth/auth.schema";
 import { PHONE_PATTERN } from "@/lib/utils";
 import { writeAuditLog } from "@/shared/audit/audit.service";
@@ -39,6 +40,7 @@ export async function createStudentAccount(tx: Tx, studentId: string, actorId: s
       role: "STUDENT",
       studentId: s.id,
       mustChangePassword: true,
+      tempPasswordExpiresAt: tempPasswordExpiry(new Date()),
       passwordHash: await bcrypt.hash(password, 10),
     },
   });
@@ -77,6 +79,7 @@ export async function createParentAccount(tx: Tx, studentId: string, actorId: st
       displayName,
       role: "PARENT",
       mustChangePassword: true,
+      tempPasswordExpiresAt: tempPasswordExpiry(new Date()),
       passwordHash: await bcrypt.hash(password, 10),
       parentLinks: { create: { studentId: s.id } },
     },

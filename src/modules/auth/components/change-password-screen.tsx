@@ -22,7 +22,8 @@ export function ChangePasswordScreen({ name, forced, role }: { name: string; for
       setError(null);
       const res = await changePasswordAction({ current: fd.get("current"), next: fd.get("next"), confirm: fd.get("confirm") });
       if (!res.ok) return setError(res.message);
-      // Tải lại toàn trang để phiên mới (đã bỏ cờ bắt đổi mật khẩu) có hiệu lực.
+      // Tải lại toàn trang để phiên mới (đã bỏ cờ bắt đổi mật khẩu) có hiệu lực — router.push giữ cache cũ.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
       window.location.href = "/";
     });
 
