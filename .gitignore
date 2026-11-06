@@ -38,6 +38,9 @@ yarn-error.log*
 # ...nhưng file mẫu thì PHẢI commit để người mới clone biết cần biến gì
 !.env.example
 
+# bản sao lưu trên VPS
+/backups/
+
 # vercel
 .vercel
 

@@ -1,6 +1,5 @@
 # TeamCherry — bản chạy thật. Build từ thư mục gốc dự án:
-#   docker build -f deploy/Dockerfile --target app     -t teamcherry-app:latest .
-#   docker build -f deploy/Dockerfile --target migrate -t teamcherry-migrate:latest .
+#   docker compose -f docker-compose.prod.yml build
 
 FROM node:22-bookworm-slim AS deps
 WORKDIR /app
@@ -17,7 +16,8 @@ ENV NODE_ENV=production
 ENV APP_URL=$APP_URL
 COPY . .
 # Giá trị giả chỉ để build qua; không trang nào kết nối DB lúc build. Giá trị thật nằm trong .env trên VPS.
-RUN DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build" AUTH_SECRET="chi-dung-luc-build" npx next build
+# Giới hạn heap vì build ngay trên VPS dùng chung với web khác.
+RUN NODE_OPTIONS=--max-old-space-size=1536 DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build" AUTH_SECRET="chi-dung-luc-build" npx next build
 # Gói script khởi tạo thành một file để image migrate không phải chứa cả node_modules.
 RUN npx esbuild prisma/bootstrap.ts --bundle --platform=node --format=esm --outfile=/app/bootstrap.mjs \
     --banner:js="import{createRequire}from'node:module';const require=createRequire(import.meta.url);"

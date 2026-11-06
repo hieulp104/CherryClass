@@ -9,7 +9,7 @@ TMP="$OUT.tmp"
 
 cd "$DIR"
 trap 'rm -f "$TMP"' EXIT
-docker compose exec -T postgres pg_dump -U teamcherry -d teamcherry --clean --if-exists | gzip > "$TMP"
+docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U teamcherry -d teamcherry --clean --if-exists | gzip > "$TMP"
 # Chỉ giữ file đã kiểm tra đọc được và có nội dung.
 gzip -t "$TMP"
 [ "$(gzip -dc "$TMP" | wc -l)" -gt 100 ]

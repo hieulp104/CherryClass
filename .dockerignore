@@ -6,6 +6,8 @@ src/generated
 !.env.example
 docs
 deploy
+backups
+docker-compose*.yml
 *.log
 coverage
 .claude
