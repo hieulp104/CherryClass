@@ -45,7 +45,7 @@ export const DEFAULT_TEMPLATES: { kind: MessageKind; title: string; body: string
     body:
       "Dạ em chào {tenPhuHuynh} ạ. Con {tenCon} đã học đủ {soBuoi} buổi của đợt này rồi ạ 🍒\n" +
       "Em gửi phiếu học phí để mình tiện xem lại từng buổi con đã học: {link}\n" +
-      "Học phí đợt này là {soTien}, mình quét mã QR trên phiếu là chuyển khoản được luôn ạ. Em cảm ơn {tenPhuHuynh} nhiều ạ!",
+      "Học phí đợt này là {soTien}, mình quét mã QR trên phiếu là chuyển khoản được luôn ạ. Chuyển xong mình bấm giúp em nút \"Tôi đã chuyển khoản\" trên phiếu nhé. Em cảm ơn {tenPhuHuynh} nhiều ạ!",
   },
   {
     kind: "FEE_GENTLE",
@@ -53,14 +53,14 @@ export const DEFAULT_TEMPLATES: { kind: MessageKind; title: string; body: string
     body:
       "Dạ em chào {tenPhuHuynh} ạ. Em xin phép nhắc nhẹ học phí đợt {soBuoi} buổi của con {tenCon} ({soTien}) ạ. " +
       "Chắc dạo này mình bận nên chưa kịp xem, em gửi lại phiếu ở đây ạ: {link}\n" +
-      "Nếu mình chuyển rồi thì {tenPhuHuynh} bỏ qua tin này giúp em nhé. Em cảm ơn ạ!",
+      "Nếu mình chuyển rồi thì {tenPhuHuynh} bấm giúp em nút \"Tôi đã chuyển khoản\" trên phiếu, đã bấm rồi thì bỏ qua tin này nhé. Em cảm ơn ạ!",
   },
   {
     kind: "FEE_CLEAR",
     title: "Nhắc rõ",
     body:
       "Dạ em chào {tenPhuHuynh} ạ. Học phí đợt {soBuoi} buổi của con {tenCon} hiện em vẫn chưa nhận được, số tiền cần đóng là {soTien} ạ. " +
-      "Phiếu chi tiết và mã QR ở đây ạ: {link}\n" +
+      "Phiếu chi tiết và mã QR ở đây ạ, chuyển xong mình bấm giúp em nút \"Tôi đã chuyển khoản\" trên phiếu nhé: {link}\n" +
       "Nếu gia đình đang có việc gì khó khăn, {tenPhuHuynh} cứ nhắn riêng em để mình cùng sắp xếp nhé. Em cảm ơn {tenPhuHuynh} ạ.",
   },
   {
