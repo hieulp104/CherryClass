@@ -54,9 +54,9 @@ Cần trước: tên miền đã trỏ về VPS, Docker Desktop đang chạy tr�
    ```
 6. Mở https://teamcherry.io.vn, đăng nhập và đổi mật khẩu.
 
-## SePay
+## SePay (chưa dùng)
 
-Webhook: `https://teamcherry.io.vn/api/public/sepay`, xác thực kiểu API Key. Xem khóa trên VPS:
+Bản thật đang để cô xác nhận tay bằng "Ghi nhận thu". Khi cần tự xác nhận, tạo webhook trên SePay: `https://teamcherry.io.vn/api/public/sepay`, xác thực kiểu API Key. Xem khóa trên VPS:
 ```bash
 grep SEPAY_API_KEY /opt/teamcherry/.env
 ```

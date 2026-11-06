@@ -65,7 +65,7 @@ src/
 - Buổi nằm trong phiếu **đã gửi** thì khóa sửa điểm danh; phải sửa qua phiếu (lý do bắt buộc).
   Phiếu **chưa gửi** (READY, chưa sửa tay/chưa có tiền) được tạo lại tự động khi sửa điểm danh.
 - Mọi thao tác chạm tiền ghi `AuditLog` trong cùng transaction.
-- Tối đa 3 tài khoản nhận tiền (`settings.bankAccounts`, `lib/bank-accounts.ts`), đúng một tài khoản "đang nhận tiền". QR lấy tài khoản đó **tính sống** — đổi tài khoản thì mọi phiếu chưa đóng đổi theo. Tiền về BẤT KỲ tài khoản nào trong danh sách đều tự xác nhận; xóa khỏi danh sách thì tiền vào số đó bị bỏ qua.
+- Tối đa 3 tài khoản nhận tiền (`settings.bankAccounts`, `lib/bank-accounts.ts`), đúng một tài khoản "đang nhận tiền". QR lấy tài khoản đó **tính sống** — đổi tài khoản thì mọi phiếu chưa đóng đổi theo. Bản thật chưa nối SePay nên cô bấm "Ghi nhận thu". Nếu nối webhook: tiền về BẤT KỲ tài khoản nào trong danh sách đều tự xác nhận; xóa khỏi danh sách thì tiền vào số đó bị bỏ qua.
 
 ## 4b. Quy tắc học sinh / phụ huynh
 
@@ -111,6 +111,8 @@ src/
 | Vườn cherry TÍNH từ dữ liệu (bài đúng hạn + tuần đi đủ), không lưu điểm thưởng | Không lệch khi sửa điểm danh / gia hạn |
 | Gia hạn bài: "muộn" luôn so với hạn hiện tại | Đơn giản, đúng cảm nhận của học sinh |
 | Chu kỳ theo nhịp CA, số buổi đặt riêng từng lớp; em vào muộn có phiếu đầu ngắn (13/10/2026) | Cô thu tiền cả ca một lúc, không ai bị tính buổi chưa học |
+| Chưa dùng SePay: cô xác nhận tay bằng "Ghi nhận thu"; webhook giữ trong code (06/11/2026) | Gói free 50 giao dịch/tháng không đủ cho ~150 em, gói trả phí không đáng |
+| Deploy bằng `git pull` + build ngay trên VPS (06/11/2026) | Quy trình đơn giản, giống các web khác trên VPS. `next build` cần 2,5–3 GB RAM nên VPS phải có swap |
 
 ## 7. Roadmap
 
@@ -120,8 +122,8 @@ src/
   giao đề (ảnh/PDF, lớp/ca/từng em, hạn nộp), nộp bài nhiều trang (tự xoay + làm nét), chấm bài (khoanh lên ảnh,
   nhận xét mẫu, ghi âm), vườn cherry + huy hiệu, so với chính mình, đếm ngược thi vào 10, cổng phụ huynh.
 - 🟡 **GĐ3**: ✅ báo cáo tháng cho phụ huynh (Sổ tay học sinh → "Báo cáo tháng": gom chuyên cần, bài tập, điểm;
-  cô viết thêm rồi sao chép). ⬜ tổng kết năm học "Wrapped", ✅ webhook SePay (`/api/public/sepay`, khóa `SEPAY_API_KEY`): tiền về có mã phiếu → tự xác nhận; không có mã → "Tiền về chưa khớp" cho cô gán; nút "Giả lập tiền về" trên máy thử. Cần tên miền HTTPS mới nối SePay thật.
-- 🟡 Triển khai: cấu hình và hướng dẫn ở `deploy/README.md` (VPS dùng chung, Nginx có sẵn, `teamcherry.io.vn` đã trỏ về VPS), đã chạy thử trên máy dev, CHƯA deploy lên VPS. Bản thật khởi tạo bằng `prisma/bootstrap.ts` — **không chạy `seed.ts`** vì seed xóa sạch dữ liệu.
+  cô viết thêm rồi sao chép). ⬜ tổng kết năm học "Wrapped", ✅ webhook SePay (`/api/public/sepay`, khóa `SEPAY_API_KEY`): tiền về có mã phiếu → tự xác nhận; không có mã → "Tiền về chưa khớp" cho cô gán; nút "Giả lập tiền về" trên máy thử. Bản thật chưa nối (xem mục 6).
+- ✅ Triển khai (06/11/2026): https://teamcherry.io.vn chạy ở `/opt/teamcherry` trên VPS dùng chung, Nginx + Let's Encrypt, sao lưu DB tự động. Cập nhật và khôi phục xem `deploy/README.md`. Bản thật khởi tạo bằng `prisma/bootstrap.ts` — **không chạy `seed.ts`** vì seed xóa sạch dữ liệu.
 
 ## 8. Quy trình Git
 

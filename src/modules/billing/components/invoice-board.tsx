@@ -100,7 +100,7 @@ export function InvoiceBoard({
       <CherryConfetti fire={confetti} />
       <PageHeader
         title="Thu tiền"
-        subtitle="Phiếu tự tạo khi ca khép chu kỳ — tiền về tài khoản là tự xác nhận"
+        subtitle="Phiếu tự tạo khi ca khép chu kỳ — tiền về thì cô bấm Ghi nhận thu"
         actions={devTools ? <SimulateTransferButton accounts={bankAccounts} /> : undefined}
       />
 

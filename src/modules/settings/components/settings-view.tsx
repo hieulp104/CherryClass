@@ -201,7 +201,7 @@ function GeneralForm({ settings }: { settings: AppSettings }) {
         </h2>
         <p className="text-sm text-muted">
           Mã VietQR trên phiếu dùng tài khoản đang nhận tiền. Đổi tài khoản thì mọi phiếu chưa đóng đổi QR theo, kể cả link đã gửi.
-          Tiền về tài khoản nào trong danh sách cũng được tự xác nhận.
+          Tiền về thì cô bấm &ldquo;Ghi nhận thu&rdquo; trên phiếu của em đó.
         </p>
         <ul className="space-y-3">
           {accounts.map((a, i) => (
@@ -251,9 +251,6 @@ function GeneralForm({ settings }: { settings: AppSettings }) {
           <Button type="button" variant="soft" size="sm" onClick={addAccount}>
             <Plus className="size-4" /> Thêm tài khoản
           </Button>
-        )}
-        {settings.bankAccounts.length > 0 && (
-          <p className="text-caption text-muted">Xóa một tài khoản thì tiền chuyển vào số đó sau này sẽ không được tự xác nhận nữa.</p>
         )}
       </Card>
 
