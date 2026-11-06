@@ -598,7 +598,7 @@ describe("đọc mã phiếu trong nội dung chuyển khoản", () => {
 
 describe("quyết định khi có tiền về", () => {
   const base = { transferType: "in" as const, amount: 720_000, accountNumber: "99141401042004", content: "HP PT-2026-0139 Chau" };
-  const ctx = { accountNo: "99141401042004", invoice: { code: "PT-2026-0139", status: "SENT" as const, totalDue: 720_000 } };
+  const ctx = { accountNos: ["99141401042004"], invoice: { code: "PT-2026-0139", status: "SENT" as const, totalDue: 720_000 } };
 
   it("đúng mã, đúng số tiền → tự xác nhận, đủ", () => {
     expect(decideBankTransfer(base, ctx)).toEqual({ kind: "MATCHED", code: "PT-2026-0139", amount: 720_000, fit: "FULL" });
@@ -617,6 +617,12 @@ describe("quyết định khi có tiền về", () => {
   });
   it("tiền vào tài khoản khác (không phải tài khoản nhận học phí) → bỏ qua", () => {
     expect(decideBankTransfer({ ...base, accountNumber: "0000111122" }, ctx).kind).toBe("IGNORE");
+  });
+  it("nhiều tài khoản: tiền về tài khoản KHÔNG đang chọn vẫn tự xác nhận (phụ huynh có thể đã lưu số cũ)", () => {
+    const many = { ...ctx, accountNos: ["0000111122", "99141401042004", "5555666677"] };
+    expect(decideBankTransfer(base, many).kind).toBe("MATCHED");
+    expect(decideBankTransfer({ ...base, accountNumber: "0000-1111-22" }, many).kind).toBe("MATCHED");
+    expect(decideBankTransfer({ ...base, accountNumber: "1234567890" }, many).kind).toBe("IGNORE");
   });
   it("không có mã phiếu → chờ cô gán tay", () => {
     expect(decideBankTransfer({ ...base, content: "chuyen tien hoc" }, { ...ctx, invoice: null })).toMatchObject({ kind: "UNMATCHED" });

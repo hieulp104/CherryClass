@@ -33,6 +33,8 @@ function simulatorEnabled() {
 const simulateSchema = z.object({
   amount: z.coerce.number().int().min(1000, "Số tiền ít nhất 1.000đ").max(100_000_000),
   content: z.string().trim().max(200),
+  /** Tiền về tài khoản nào; bỏ trống = tài khoản đang nhận tiền. */
+  accountNo: z.string().optional(),
 });
 
 /**
@@ -46,13 +48,15 @@ export async function simulateBankTransferAction(input: unknown): Promise<Action
   const parsed = simulateSchema.safeParse(input);
   if (!parsed.success) return fail("VALIDATION_ERROR", parsed.error.issues[0]?.message);
   const settings = await getSettings();
+  const account = parsed.data.accountNo ? settings.bankAccounts.find((a) => a.accountNo === parsed.data.accountNo) : settings.bank;
+  if (!account) return fail("VALIDATION_ERROR", "Tài khoản này không còn trong Cài đặt.");
   const now = vnNow();
   const result = await handleSepayTransaction(
     {
       id: `SIM-${Date.now()}`,
-      gateway: settings.bank.bankName || "MB Bank",
+      gateway: account.bankName || "MB Bank",
       transactionDate: `${now.dateKey} ${now.time}:00`,
-      accountNumber: settings.bank.accountNo,
+      accountNumber: account.accountNo,
       code: null,
       content: parsed.data.content,
       transferType: "in",

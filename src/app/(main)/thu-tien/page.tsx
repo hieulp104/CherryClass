@@ -30,6 +30,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
       quietHours={settings.quietHours}
       appUrl={process.env.APP_URL ?? ""}
       bankRows={bankRows}
+      bankAccounts={settings.bankAccounts}
       devTools={process.env.NODE_ENV !== "production" || process.env.BANK_SIMULATOR === "on"}
     />
   );

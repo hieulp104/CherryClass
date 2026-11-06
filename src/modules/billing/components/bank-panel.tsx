@@ -9,12 +9,13 @@ import { StudentAvatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Notice } from "@/components/ui/feedback";
-import { Field, Input, MoneyInput } from "@/components/ui/form";
+import { Field, Input, MoneyInput, Select } from "@/components/ui/form";
 import { Sheet } from "@/components/ui/sheet";
 import { useToast } from "@/components/ui/toast";
 import { assignBankTransactionAction, dismissBankTransactionAction, simulateBankTransferAction } from "@/modules/billing/bank.actions";
 import type { UnmatchedBankTransaction } from "@/modules/billing/bank.service";
 import { useStudentSearch } from "@/modules/students/use-student-search";
+import type { BankAccount } from "@/lib/bank-accounts";
 import { cn, formatDateTime, formatVnd } from "@/lib/utils";
 
 // ─────────────── Tiền về chưa khớp ───────────────
@@ -147,10 +148,12 @@ type Preset = { label: string; amount: number; content: string };
  */
 export function SimulateTransferButton({
   invoice,
+  accounts = [],
   className,
   block,
 }: {
   invoice?: { code: string; totalDue: number; studentName: string };
+  accounts?: BankAccount[];
   className?: string;
   block?: boolean;
 }) {
@@ -160,12 +163,20 @@ export function SimulateTransferButton({
       <Button variant="outline" block={block} className={cn("border-dashed", className)} onClick={() => setOpen(true)}>
         <FlaskConical className="size-4" /> Giả lập tiền về
       </Button>
-      {open && <SimulateSheet invoice={invoice} onClose={() => setOpen(false)} />}
+      {open && <SimulateSheet invoice={invoice} accounts={accounts} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function SimulateSheet({ invoice, onClose }: { invoice?: { code: string; totalDue: number; studentName: string }; onClose: () => void }) {
+function SimulateSheet({
+  invoice,
+  accounts,
+  onClose,
+}: {
+  invoice?: { code: string; totalDue: number; studentName: string };
+  accounts: BankAccount[];
+  onClose: () => void;
+}) {
   const router = useRouter();
   const toast = useToast();
   const due = invoice?.totalDue ?? 720_000;
@@ -179,6 +190,7 @@ function SimulateSheet({ invoice, onClose }: { invoice?: { code: string; totalDu
   const [preset, setPreset] = useState(0);
   const [amount, setAmount] = useState(presets[0].amount);
   const [content, setContent] = useState(presets[0].content);
+  const [accountNo, setAccountNo] = useState(accounts.find((a) => a.active)?.accountNo ?? "");
   const [pending, start] = useTransition();
 
   const pick = (i: number) => {
@@ -189,7 +201,7 @@ function SimulateSheet({ invoice, onClose }: { invoice?: { code: string; totalDu
 
   const send = () =>
     start(async () => {
-      const res = await simulateBankTransferAction({ amount, content });
+      const res = await simulateBankTransferAction({ amount, content, accountNo: accountNo || undefined });
       if (!res.ok) return toast.error(res.message);
       const r = res.data;
       if (r.status === "MATCHED") {
@@ -228,6 +240,18 @@ function SimulateSheet({ invoice, onClose }: { invoice?: { code: string; totalDu
             </button>
           ))}
         </div>
+        {accounts.length > 1 && (
+          <Field label="Tiền về tài khoản">
+            <Select value={accountNo} onChange={(e) => setAccountNo(e.target.value)}>
+              {accounts.map((a) => (
+                <option key={a.accountNo} value={a.accountNo}>
+                  {a.bankName} ···{a.accountNo.slice(-4)}
+                  {a.active ? " (đang nhận tiền)" : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
         <Field label="Số tiền về">
           <MoneyInput key={`a${preset}`} defaultValue={amount} onValueChange={setAmount} />
         </Field>

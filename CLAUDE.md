@@ -65,6 +65,7 @@ src/
 - Buổi nằm trong phiếu **đã gửi** thì khóa sửa điểm danh; phải sửa qua phiếu (lý do bắt buộc).
   Phiếu **chưa gửi** (READY, chưa sửa tay/chưa có tiền) được tạo lại tự động khi sửa điểm danh.
 - Mọi thao tác chạm tiền ghi `AuditLog` trong cùng transaction.
+- Tối đa 3 tài khoản nhận tiền (`settings.bankAccounts`, `lib/bank-accounts.ts`), đúng một tài khoản "đang nhận tiền". QR lấy tài khoản đó **tính sống** — đổi tài khoản thì mọi phiếu chưa đóng đổi theo. Tiền về BẤT KỲ tài khoản nào trong danh sách đều tự xác nhận; xóa khỏi danh sách thì tiền vào số đó bị bỏ qua.
 
 ## 4b. Quy tắc học sinh / phụ huynh
 

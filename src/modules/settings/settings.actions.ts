@@ -8,6 +8,7 @@ import { can } from "@/common/permissions/permissions";
 import { getCurrentUser } from "@/modules/auth/auth.service";
 import { closeShiftCycle } from "@/modules/billing/billing.service";
 import { getSettings, saveSetting } from "@/modules/settings/settings.service";
+import { MAX_BANK_ACCOUNTS, withOneActive } from "@/lib/bank-accounts";
 import { writeAuditLog } from "@/shared/audit/audit.service";
 import { prisma } from "@/shared/prisma/prisma.service";
 
@@ -22,12 +23,18 @@ const schema = z.object({
     countUnexcused: z.boolean(),
     roundTo: z.union([z.literal(1), z.literal(1000)]),
   }),
-  bank: z.object({
-    bin: z.string().regex(/^\d{6}$|^$/, "Ngân hàng chưa đúng"),
-    bankName: z.string().max(60),
-    accountNo: z.string().trim().regex(/^\d{4,20}$|^$/, "Số tài khoản chỉ gồm chữ số"),
-    accountName: z.string().trim().max(60).transform((v) => v.toUpperCase()),
-  }),
+  bankAccounts: z
+    .array(
+      z.object({
+        bin: z.string().regex(/^\d{6}$/, "Cô chọn ngân hàng cho tài khoản giúp em"),
+        bankName: z.string().min(1).max(60),
+        accountNo: z.string().trim().regex(/^\d{4,20}$/, "Số tài khoản gồm 4–20 chữ số"),
+        accountName: z.string().trim().min(1, "Cô nhập tên chủ tài khoản giúp em").max(60).transform((v) => v.toUpperCase()),
+        active: z.boolean(),
+      }),
+    )
+    .max(MAX_BANK_ACCOUNTS, `Tối đa ${MAX_BANK_ACCOUNTS} tài khoản`)
+    .refine((list) => new Set(list.map((a) => a.accountNo)).size === list.length, "Có hai dòng trùng số tài khoản"),
   reminders: z
     .object({
       gentleAfterDays: z.coerce.number().int().min(1).max(60),
@@ -58,7 +65,7 @@ export async function saveSettingsAction(input: unknown): Promise<ActionResult<n
     const closeAfter = before.billing.cycleLength !== d.billing.cycleLength;
     await saveSetting("teacherName", d.teacherName, tx);
     await saveSetting("billing", d.billing, tx);
-    await saveSetting("bank", d.bank, tx);
+    await saveSetting("bankAccounts", withOneActive(d.bankAccounts), tx);
     await saveSetting("reminders", d.reminders, tx);
     await saveSetting("examDate", d.examDate, tx);
     await saveSetting("gradingComments", d.gradingComments, tx);
@@ -67,7 +74,7 @@ export async function saveSettingsAction(input: unknown): Promise<ActionResult<n
       actorId: user.id,
       action: "SETTINGS_UPDATE",
       entity: "Setting",
-      before: { teacherName: before.teacherName, billing: before.billing, bank: before.bank, reminders: before.reminders },
+      before: { teacherName: before.teacherName, billing: before.billing, bankAccounts: before.bankAccounts, reminders: before.reminders },
       after: d,
     });
     if (closeAfter) {

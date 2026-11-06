@@ -138,7 +138,7 @@ async function main() {
   });
   await saveSetting("teacherName", "cô Hà");
   await saveSetting("billing", DEFAULT_BILLING_SETTINGS);
-  await saveSetting("bank", { bin: "970436", bankName: "Vietcombank", accountNo: "1029384756", accountName: "NGUYEN THU HA" });
+  await saveSetting("bankAccounts", [{ bin: "970436", bankName: "Vietcombank", accountNo: "1029384756", accountName: "NGUYEN THU HA", active: true }]);
   await saveSetting("reminders", DEFAULT_SETTINGS.reminders);
   await saveSetting("quietHours", DEFAULT_SETTINGS.quietHours);
   await saveSetting("examDate", "2027-06-02");

@@ -375,11 +375,13 @@ export type BankTransferDecision =
  */
 export function decideBankTransfer(
   tx: { transferType: "in" | "out"; amount: number; accountNumber: string; content: string },
-  ctx: { accountNo: string; invoice: { code: string; status: "READY" | "SENT" | "VOID"; totalDue: number } | null },
+  ctx: { accountNos: string[]; invoice: { code: string; status: "READY" | "SENT" | "VOID"; totalDue: number } | null },
 ): BankTransferDecision {
   if (tx.transferType !== "in") return { kind: "IGNORE", reason: "Tiền ra khỏi tài khoản" };
   if (!Number.isInteger(tx.amount) || tx.amount <= 0) return { kind: "IGNORE", reason: "Số tiền không hợp lệ" };
-  if (ctx.accountNo && tx.accountNumber.replace(/\D/g, "") !== ctx.accountNo.replace(/\D/g, "")) {
+  // Mọi tài khoản cô đã thêm đều nhận học phí — phụ huynh có thể đã lưu số cũ sau khi cô đổi tài khoản.
+  const incoming = tx.accountNumber.replace(/\D/g, "");
+  if (ctx.accountNos.length > 0 && !ctx.accountNos.some((no) => no.replace(/\D/g, "") === incoming)) {
     return { kind: "IGNORE", reason: "Không phải tài khoản nhận học phí" };
   }
   const code = parseInvoiceCode(tx.content);

@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 
 import { BrandLogo, CherryIcon, Mascot } from "@/components/brand/mascot";
+import { LiveNotifications } from "@/components/layout/live-notifications";
 import { OfflineSync } from "@/components/layout/offline-sync";
 import { LogoutForm } from "@/components/layout/logout-form";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -117,6 +118,7 @@ export function AppShell({
         Bỏ qua, tới nội dung chính
       </a>
       <OfflineSync />
+      <LiveNotifications />
       {/* ───── Sidebar máy tính: mở rộng ⇄ thu gọn thành cột icon (nhớ theo máy) ───── */}
       <aside className="sidebar-wash sticky top-0 hidden h-dvh flex-col overflow-hidden border-r border-line px-3 py-4 lg:flex">
         <div className={cn("flex items-center gap-2", collapsed ? "flex-col" : "pl-2")}>

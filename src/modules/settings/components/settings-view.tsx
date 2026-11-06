@@ -21,6 +21,7 @@ import { saveSettingsAction } from "@/modules/settings/settings.actions";
 import type { AppSettings } from "@/modules/settings/settings.service";
 import { deleteSiblingGroupAction, saveSiblingGroupAction } from "@/modules/students/students.actions";
 import { useStudentSearch } from "@/modules/students/use-student-search";
+import { MAX_BANK_ACCOUNTS, withOneActive, type BankAccount } from "@/lib/bank-accounts";
 import { BANKS } from "@/lib/vietqr";
 import { cn, formatVnd } from "@/lib/utils";
 
@@ -54,13 +55,24 @@ export function SettingsView({
 
 // ───── Cài đặt chung + học phí + ngân hàng ─────
 
+/** `key` chỉ để React nhận diện dòng khi cô sửa số tài khoản. */
+type AccountRow = BankAccount & { key: string };
+const BLANK_ACCOUNT = { bin: "", bankName: "", accountNo: "", accountName: "" };
+
 function GeneralForm({ settings }: { settings: AppSettings }) {
   const router = useRouter();
   const toast = useToast();
   const [billing, setBilling] = useState(settings.billing);
-  const [bankBin, setBankBin] = useState(settings.bank.bin);
+  const [accounts, setAccounts] = useState<AccountRow[]>(() =>
+    settings.bankAccounts.length > 0
+      ? settings.bankAccounts.map((a) => ({ ...a, key: a.accountNo }))
+      : [{ ...BLANK_ACCOUNT, key: "moi", active: true }],
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+
+  const patchAccount = (key: string, patch: Partial<AccountRow>) => setAccounts((l) => l.map((a) => (a.key === key ? { ...a, ...patch } : a)));
+  const addAccount = () => setAccounts((l) => withOneActive([...l, { ...BLANK_ACCOUNT, key: `moi-${Date.now()}`, active: false }]));
 
   // Ví dụ sống: một chu kỳ đủ buổi với cài đặt đang chọn.
   const sample = computeInvoiceAmounts({
@@ -71,7 +83,6 @@ function GeneralForm({ settings }: { settings: AppSettings }) {
   const submit = (fd: FormData) =>
     start(async () => {
       setError(null);
-      const bank = BANKS.find((b) => b.bin === bankBin);
       const res = await saveSettingsAction({
         teacherName: fd.get("teacherName"),
         billing: {
@@ -79,12 +90,16 @@ function GeneralForm({ settings }: { settings: AppSettings }) {
           defaultUnitPrice: parseMoney(fd.get("defaultUnitPrice")),
           cycleLength: Number(fd.get("cycleLength")),
         },
-        bank: {
-          bin: bankBin,
-          bankName: bank?.name ?? "",
-          accountNo: String(fd.get("accountNo") ?? ""),
-          accountName: String(fd.get("accountName") ?? ""),
-        },
+        // Dòng để trống hoàn toàn thì bỏ qua; dòng điền dở thì server báo lỗi cho cô sửa.
+        bankAccounts: accounts
+          .filter((a) => a.bin || a.accountNo.trim() || a.accountName.trim())
+          .map((a) => ({
+            bin: a.bin,
+            bankName: BANKS.find((b) => b.bin === a.bin)?.name ?? "",
+            accountNo: a.accountNo,
+            accountName: a.accountName,
+            active: a.active,
+          })),
         reminders: { gentleAfterDays: fd.get("gentleAfterDays"), clearAfterDays: fd.get("clearAfterDays") },
         examDate: String(fd.get("examDate") ?? ""),
         gradingComments: String(fd.get("gradingComments") ?? "")
@@ -185,26 +200,61 @@ function GeneralForm({ settings }: { settings: AppSettings }) {
           <Landmark className="size-5 text-primary" /> Tài khoản nhận học phí
         </h2>
         <p className="text-sm text-muted">
-          Dùng để tạo mã VietQR trên phiếu — phụ huynh quét là chuyển đúng số tiền, đúng nội dung.
+          Mã VietQR trên phiếu dùng tài khoản đang nhận tiền. Đổi tài khoản thì mọi phiếu chưa đóng đổi QR theo, kể cả link đã gửi.
+          Tiền về tài khoản nào trong danh sách cũng được tự xác nhận.
         </p>
-        <Field label="Ngân hàng">
-          <Select value={bankBin} onChange={(e) => setBankBin(e.target.value)}>
-            <option value="">— Chọn ngân hàng —</option>
-            {BANKS.map((b) => (
-              <option key={b.bin} value={b.bin}>
-                {b.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Số tài khoản">
-            <Input name="accountNo" inputMode="numeric" defaultValue={settings.bank.accountNo} />
-          </Field>
-          <Field label="Tên chủ tài khoản">
-            <Input name="accountName" defaultValue={settings.bank.accountName} className="uppercase" />
-          </Field>
-        </div>
+        <ul className="space-y-3">
+          {accounts.map((a, i) => (
+            <li key={a.key} className={cn("space-y-3 rounded-control border p-3.5", a.active ? "border-primary bg-primary-soft/40" : "border-line")}>
+              <div className="flex items-center justify-between gap-2">
+                <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
+                  <input
+                    type="radio"
+                    name="activeBankAccount"
+                    checked={a.active}
+                    onChange={() => setAccounts((l) => l.map((x) => ({ ...x, active: x.key === a.key })))}
+                    className="size-4 accent-primary"
+                  />
+                  {a.active ? "Đang nhận tiền" : "Dùng tài khoản này"}
+                </label>
+                <button
+                  type="button"
+                  aria-label={`Xóa tài khoản ${i + 1}`}
+                  onClick={() => setAccounts((l) => withOneActive(l.filter((x) => x.key !== a.key)))}
+                  className="grid size-9 place-items-center rounded-control text-muted transition hover:text-overdue"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+              <Field label="Ngân hàng">
+                <Select value={a.bin} onChange={(e) => patchAccount(a.key, { bin: e.target.value })}>
+                  <option value="">— Chọn ngân hàng —</option>
+                  {BANKS.map((b) => (
+                    <option key={b.bin} value={b.bin}>
+                      {b.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Số tài khoản">
+                  <Input inputMode="numeric" value={a.accountNo} onChange={(e) => patchAccount(a.key, { accountNo: e.target.value })} />
+                </Field>
+                <Field label="Tên chủ tài khoản">
+                  <Input value={a.accountName} onChange={(e) => patchAccount(a.key, { accountName: e.target.value })} className="uppercase" />
+                </Field>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {accounts.length < MAX_BANK_ACCOUNTS && (
+          <Button type="button" variant="soft" size="sm" onClick={addAccount}>
+            <Plus className="size-4" /> Thêm tài khoản
+          </Button>
+        )}
+        {settings.bankAccounts.length > 0 && (
+          <p className="text-caption text-muted">Xóa một tài khoản thì tiền chuyển vào số đó sau này sẽ không được tự xác nhận nữa.</p>
+        )}
       </Card>
 
       <Card className="space-y-4 p-5">

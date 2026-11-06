@@ -35,6 +35,7 @@ import { ConfirmClaimSheet, RecordPaymentSheet } from "@/modules/billing/compone
 import { MessageComposer } from "@/modules/messages/components/message-composer";
 import { SendInvoiceSheet } from "@/modules/billing/components/send-invoice-sheet";
 import { SimulateTransferButton } from "@/modules/billing/components/bank-panel";
+import type { BankAccount } from "@/lib/bank-accounts";
 import type { TemplateItem } from "@/modules/messages/messages.service";
 import { parentAddress } from "@/modules/messages/messages.templates";
 import { fromDbDate, shortDate } from "@/lib/dates";
@@ -44,7 +45,17 @@ type Detail = NonNullable<Awaited<ReturnType<typeof getInvoiceDetail>>>;
 // Sau JSON.parse ở page, Date thành chuỗi — dùng kiểu "lỏng" cho phần ngày.
 type Loose<T> = T extends Date ? string : T extends (infer U)[] ? Loose<U>[] : T extends object ? { [K in keyof T]: Loose<T[K]> } : T;
 
-export function InvoiceDetailView({ detail, templates, devTools = false }: { detail: Loose<Detail>; templates: TemplateItem[]; devTools?: boolean }) {
+export function InvoiceDetailView({
+  detail,
+  templates,
+  devTools = false,
+  bankAccounts = [],
+}: {
+  detail: Loose<Detail>;
+  templates: TemplateItem[];
+  devTools?: boolean;
+  bankAccounts?: BankAccount[];
+}) {
   const router = useRouter();
   const toast = useToast();
   const { invoice, settings } = detail;
@@ -216,6 +227,7 @@ export function InvoiceDetailView({ detail, templates, devTools = false }: { det
                 <SimulateTransferButton
                   block
                   className="col-span-2"
+                  accounts={bankAccounts}
                   invoice={{ code: invoice.code, totalDue: detail.totalDue, studentName: student.fullName }}
                 />
               )}

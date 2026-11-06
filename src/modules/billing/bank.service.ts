@@ -3,6 +3,7 @@ import { z } from "zod";
 import { decideBankTransfer, parseInvoiceCode } from "@/modules/billing/billing.core";
 import { displayStateOf, loadLedgers } from "@/modules/billing/billing.service";
 import { getSettings } from "@/modules/settings/settings.service";
+import { normalizeAccountNo } from "@/lib/bank-accounts";
 import { formatVnd, givenName } from "@/lib/utils";
 import { writeAuditLog } from "@/shared/audit/audit.service";
 import { prisma } from "@/shared/prisma/prisma.service";
@@ -56,9 +57,12 @@ export async function handleSepayTransaction(p: SepayPayload, actorId: string | 
   const totalDue = invoice ? displayStateOf(invoice, ledger, settings).totalDue : 0;
   const decision = decideBankTransfer(
     { transferType: p.transferType, amount: p.transferAmount, accountNumber: p.accountNumber, content: p.content },
-    { accountNo: settings.bank.accountNo, invoice: invoice ? { code: invoice.code, status: invoice.status, totalDue } : null },
+    { accountNos: settings.bankAccounts.map((a) => a.accountNo), invoice: invoice ? { code: invoice.code, status: invoice.status, totalDue } : null },
   );
   const receivedAt = vnDateTime(p.transactionDate);
+  // Có nhiều tài khoản thì nói rõ tiền vào tài khoản nào.
+  const account = settings.bankAccounts.find((a) => normalizeAccountNo(a.accountNo) === normalizeAccountNo(p.accountNumber));
+  const intoAccount = account && settings.bankAccounts.length > 1 ? ` Vào ${account.bankName} ···${account.accountNo.slice(-4)}.` : "";
 
   return prisma.$transaction(async (tx) => {
     // Chống trùng: SePay có thể gửi lại cùng một giao dịch (thử lại, gửi tay, nhiều webhook).
@@ -89,7 +93,7 @@ export async function handleSepayTransaction(p: SepayPayload, actorId: string | 
           userId: t.id,
           kind: "BANK_UNMATCHED",
           title: `Có ${formatVnd(row.amount)} về tài khoản, chưa biết của em nào`,
-          body: `${reason}. Nội dung: "${row.content}" — cô gán cho em giúp em nhé.`,
+          body: `${reason}. Nội dung: "${row.content}" — cô gán cho em giúp em nhé.${intoAccount}`,
           link: "/thu-tien#tien-ve",
         })),
       });
@@ -134,7 +138,7 @@ export async function handleSepayTransaction(p: SepayPayload, actorId: string | 
         userId: t.id,
         kind: "BANK_AUTO_CONFIRM",
         title: `Đã nhận ${formatVnd(decision.amount)} học phí của ${child}`,
-        body,
+        body: `${body}${intoAccount}`,
         link: `/thu-tien/${invoice.id}`,
       })),
     });

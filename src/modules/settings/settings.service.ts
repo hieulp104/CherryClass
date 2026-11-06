@@ -1,5 +1,6 @@
 import { DEFAULT_BILLING_SETTINGS, type BillingSettings } from "@/modules/billing/billing.core";
 import type { Prisma } from "@/generated/prisma/client";
+import { activeBankAccount, resolveBankAccounts, type BankAccount, type BankSettings } from "@/lib/bank-accounts";
 import { prisma } from "@/shared/prisma/prisma.service";
 
 /**
@@ -7,18 +8,13 @@ import { prisma } from "@/shared/prisma/prisma.service";
  * DB thiếu key nào thì dùng mặc định, nên thêm cấu hình mới không cần migration.
  */
 
-export type BankSettings = {
-  /** Mã BIN ngân hàng theo NAPAS, vd 970436 = Vietcombank. */
-  bin: string;
-  bankName: string;
-  accountNo: string;
-  accountName: string;
-};
-
 export type AppSettings = {
   teacherName: string;
   billing: BillingSettings;
+  /** Tài khoản đang nhận tiền — tính từ `bankAccounts`, không lưu riêng. */
   bank: BankSettings;
+  /** Tối đa 3 tài khoản, đúng một tài khoản đang nhận tiền. */
+  bankAccounts: BankAccount[];
   reminders: { gentleAfterDays: number; clearAfterDays: number };
   /** Giờ yên tĩnh — không gửi gì cho phụ huynh/học sinh. */
   quietHours: { from: string; to: string };
@@ -32,6 +28,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   teacherName: "cô Hà",
   billing: DEFAULT_BILLING_SETTINGS,
   bank: { bin: "", bankName: "", accountNo: "", accountName: "" },
+  bankAccounts: [],
   reminders: { gentleAfterDays: 7, clearAfterDays: 14 },
   quietHours: { from: "21:30", to: "06:30" },
   examDate: null,
@@ -46,7 +43,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   ],
 };
 
-type Key = keyof AppSettings;
+type Key = Exclude<keyof AppSettings, "bank">;
 
 type Client = Pick<Prisma.TransactionClient, "setting">;
 
@@ -62,10 +59,15 @@ export async function getSettings(client: Client = prisma): Promise<AppSettings>
     }
     return value as AppSettings[K];
   };
+  const bankAccounts = resolveBankAccounts(
+    map.get("bankAccounts") as BankAccount[] | null | undefined,
+    map.get("bank") as Partial<BankSettings> | null | undefined,
+  );
   return {
     teacherName: pick("teacherName"),
     billing: pick("billing"),
-    bank: pick("bank"),
+    bank: activeBankAccount(bankAccounts),
+    bankAccounts,
     reminders: pick("reminders"),
     quietHours: pick("quietHours"),
     examDate: pick("examDate"),

@@ -17,6 +17,7 @@ import { ConfirmClaimSheet } from "@/modules/billing/components/payment-sheets";
 import { MessageComposer } from "@/modules/messages/components/message-composer";
 import { SendInvoiceSheet } from "@/modules/billing/components/send-invoice-sheet";
 import { SimulateTransferButton, UnmatchedBankPanel } from "@/modules/billing/components/bank-panel";
+import type { BankAccount } from "@/lib/bank-accounts";
 import type { UnmatchedBankTransaction } from "@/modules/billing/bank.service";
 import type { TemplateItem } from "@/modules/messages/messages.service";
 import { parentAddress } from "@/modules/messages/messages.templates";
@@ -50,6 +51,7 @@ export function InvoiceBoard({
   appUrl,
   bankRows,
   devTools,
+  bankAccounts,
 }: {
   invoices: InvoiceListItem[];
   outstanding: { total: number; students: number };
@@ -62,6 +64,7 @@ export function InvoiceBoard({
   bankRows: UnmatchedBankTransaction[];
   /** Máy thử: hiện nút "Giả lập tiền về". */
   devTools: boolean;
+  bankAccounts: BankAccount[];
 }) {
   const router = useRouter();
   const counts = useMemo(() => {
@@ -98,7 +101,7 @@ export function InvoiceBoard({
       <PageHeader
         title="Thu tiền"
         subtitle="Phiếu tự tạo khi ca khép chu kỳ — tiền về tài khoản là tự xác nhận"
-        actions={devTools ? <SimulateTransferButton /> : undefined}
+        actions={devTools ? <SimulateTransferButton accounts={bankAccounts} /> : undefined}
       />
 
       <motion.div
