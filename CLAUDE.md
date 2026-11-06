@@ -121,7 +121,7 @@ src/
   nhận xét mẫu, ghi âm), vườn cherry + huy hiệu, so với chính mình, đếm ngược thi vào 10, cổng phụ huynh.
 - 🟡 **GĐ3**: ✅ báo cáo tháng cho phụ huynh (Sổ tay học sinh → "Báo cáo tháng": gom chuyên cần, bài tập, điểm;
   cô viết thêm rồi sao chép). ⬜ tổng kết năm học "Wrapped", ✅ webhook SePay (`/api/public/sepay`, khóa `SEPAY_API_KEY`): tiền về có mã phiếu → tự xác nhận; không có mã → "Tiền về chưa khớp" cho cô gán; nút "Giả lập tiền về" trên máy thử. Cần tên miền HTTPS mới nối SePay thật.
-- ⬜ Triển khai: cần tên miền HTTPS (PWA + link phiếu). Sao lưu tự động định kỳ (hiện có nút "Tải file sao lưu").
+- 🟡 Triển khai: cấu hình và hướng dẫn ở `deploy/README.md` (VPS dùng chung, Nginx có sẵn, `teamcherry.io.vn` đã trỏ về VPS), đã chạy thử trên máy dev, CHƯA deploy lên VPS. Bản thật khởi tạo bằng `prisma/bootstrap.ts` — **không chạy `seed.ts`** vì seed xóa sạch dữ liệu.
 
 ## 8. Quy trình Git
 

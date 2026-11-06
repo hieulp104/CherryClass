@@ -1,0 +1,93 @@
+# TeamCherry trên VPS (/opt/teamcherry/docker-compose.yml). Biến bí mật nằm trong /opt/teamcherry/.env.
+# Chỉ web app mở cổng, và chỉ ở 127.0.0.1 — Nginx đứng trước. Postgres, MinIO không ra ngoài.
+# Giới hạn RAM để TeamCherry không ảnh hưởng các web khác cùng VPS.
+name: teamcherry
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    mem_limit: 400m
+    logging: *logging
+    environment:
+      POSTGRES_USER: teamcherry
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: teamcherry
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teamcherry -d teamcherry"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    # minio/minio không còn tải được từ Docker Hub — deploy.sh gửi bản này từ máy tính lên.
+    image: teamcherry-minio:2025-09-07
+    restart: unless-stopped
+    mem_limit: 400m
+    logging: *logging
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: teamcherry
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?}
+      MINIO_BROWSER: "off"
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Áp dụng migration rồi dừng — container này ở trạng thái Exited (0) là bình thường.
+  migrate:
+    image: teamcherry-migrate:latest
+    restart: "no"
+    logging: *logging
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: postgresql://teamcherry:${POSTGRES_PASSWORD:?}@postgres:5432/teamcherry?schema=public
+      TZ: Asia/Ho_Chi_Minh
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    image: teamcherry-app:latest
+    restart: unless-stopped
+    mem_limit: 768m
+    logging: *logging
+    ports:
+      - "127.0.0.1:${APP_PORT:-8110}:3000"
+    environment:
+      DATABASE_URL: postgresql://teamcherry:${POSTGRES_PASSWORD:?}@postgres:5432/teamcherry?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:?}
+      AUTH_URL: ${APP_URL:?}
+      AUTH_TRUST_HOST: "true"
+      APP_URL: ${APP_URL:?}
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: teamcherry
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?}
+      MINIO_BUCKET: teamcherry-files
+      SEPAY_API_KEY: ${SEPAY_API_KEY:-}
+      TZ: Asia/Ho_Chi_Minh
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  minio_data:
